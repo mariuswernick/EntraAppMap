@@ -35,7 +35,9 @@ Param
     [array]$CriticalAADRoles = @('62e90394-69f5-4237-9190-012177145e10', 'e8611ab8-c189-46e8-94e1-60213ab1f814', '7be44c8a-adaf-4e2a-84d6-ab2649e08a13'), #Global Administrator, Privileged Role Administrator, Privileged Authentication Administrator
     [switch]$NoPermissionMap, #skip building the interactive Permission Map in the HTML report
     [switch]$MapIncludeUnclassifiedPermissions, #also create map nodes for unclassified permissions (default: only critical/medium; unclassified are aggregated per API)
-    [int]$MapAssignedToEdgeLimit = 200 #per Service Principal cap for 'principal assigned to app' map edges
+    [int]$MapAssignedToEdgeLimit = 200, #per Service Principal cap for 'principal assigned to app' map edges
+    [switch]$NoStaleIdentityDetection, #skip collecting service principal sign-in activity and the stale identity analysis
+    [int]$StaleIdentityDays = 90 #an identity with no sign-in newer than this many days (and older than this) is flagged as a stale identity candidate
 )
 
 $Error.clear()
@@ -459,6 +461,19 @@ if (-not $NoPermissionMap) {
     }
 }
 #endregion PermissionMapFunction
+
+#region StaleIdentityFunction
+$script:staleIdentityAvailable = $false
+if (-not $NoStaleIdentityDetection) {
+    try {
+        . ".\$($ScriptPath)\functions\Get-AzADSPIStaleIdentity.ps1"
+        $script:staleIdentityAvailable = $true
+    }
+    catch {
+        Write-Host "Stale identity engine '.\$($ScriptPath)\functions\Get-AzADSPIStaleIdentity.ps1' not found - the report will be built without stale identity analysis"
+    }
+}
+#endregion StaleIdentityFunction
 
 #region resolveObectsById
 function resolveObectsById($objects, $targetHt) {
@@ -8125,12 +8140,54 @@ if ($cuAgents.Count -gt 0) {
 }
 #endregion AgentIdentitySponsors
 
+#region SignInActivityAndStaleIdentities
+#Service principal sign-in activity (beta usage report) - one tenant-wide, paged call. Feeds stale identity analysis.
+$htSignInActivityByAppId = @{}
+$signInActivityAvailable = $false
+$staleIdentityData = @{}
+$staleIdentityCandidates = @()
+if ($script:staleIdentityAvailable) {
+    Write-Host ' Collecting service principal sign-in activity (stale identity analysis)'
+    $currentTask = 'get servicePrincipalSignInActivities'
+    $uri = "$($azAPICallConf['azAPIEndpointUrls'].MicrosoftGraph)/beta/reports/servicePrincipalSignInActivities"
+    $method = 'GET'
+    try {
+        $getSignInActivities = AzAPICall -AzAPICallConfiguration $azAPICallConf -uri $uri -method $method -currentTask $currentTask
+        if ($getSignInActivities -and $getSignInActivities -isnot [string]) {
+            foreach ($signInActivity in $getSignInActivities) {
+                if ($signInActivity.appId) {
+                    $htSignInActivityByAppId[[string]$signInActivity.appId] = [PSCustomObject]@{
+                        lastSignInDateTime = $signInActivity.lastSignInActivity.lastSignInDateTime
+                        applicationClient = $signInActivity.applicationAuthenticationClientSignInActivity.lastSignInDateTime
+                        applicationResource = $signInActivity.applicationAuthenticationResourceSignInActivity.lastSignInDateTime
+                        delegatedClient = $signInActivity.delegatedClientSignInActivity.lastSignInDateTime
+                        delegatedResource = $signInActivity.delegatedResourceSignInActivity.lastSignInDateTime
+                    }
+                }
+            }
+            $signInActivityAvailable = $true
+            Write-Host "  Sign-in activity collected for $($htSignInActivityByAppId.Count) applications"
+        }
+        else {
+            Write-Host '  Sign-in activity report returned no data - stale identity analysis will rely on account state only'
+        }
+    }
+    catch {
+        Write-Host "  Collecting service principal sign-in activity failed - stale identity analysis will rely on account state only (the report requires Microsoft Graph application permission 'AuditLog.Read.All'; the beta usage report is available in the global cloud only)"
+    }
+
+    $staleIdentityData = Get-AzADSPIStaleIdentity -cu $cu -SignInActivityByAppId $htSignInActivityByAppId -SignInDataAvailable $signInActivityAvailable -StaleIdentityDays $StaleIdentityDays
+    $staleIdentityCandidates = @($staleIdentityData.Values | Where-Object { $_.isStale } | Sort-Object -Property @{Expression = { $_.lastSignInDaysAgo }; Descending = $true })
+    Write-Host " Stale identity candidates: $($staleIdentityCandidates.Count) (threshold $($StaleIdentityDays) days)"
+}
+#endregion SignInActivityAndStaleIdentities
+
 $permissionMapDataJson = $null
 $permissionMapData = $null
 if ($script:permissionMapAvailable -and $azadspiMapJs) {
     Write-Host ' Building Permission Map data'
     $startPermissionMap = Get-Date
-    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit -AgentSponsors $htAgentSponsors
+    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit -AgentSponsors $htAgentSponsors -Staleness $staleIdentityData
     $permissionMapDataJson = ($permissionMapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'
     $endPermissionMap = Get-Date
     Write-Host " Building Permission Map data ($($permissionMapData.stats.nodeCount) nodes, $($permissionMapData.stats.edgeCount) edges) duration: $((New-TimeSpan -Start $startPermissionMap -End $endPermissionMap).TotalSeconds) seconds"
@@ -8289,7 +8346,9 @@ if ($permissionMapDataJson) {
             <span class="mapSubtitle">Users, apps and their permissions - click a node to explore its connections</span>
             <div class="mapStats">
 '@
-    $html += "                <span class=`"mapStatChip`"><b>$($permissionMapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($permissionMapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($permissionMapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($permissionMapData.stats.mediumNodeCount)</b> medium</span>"
+    $mapStaleChip = ''
+    if ($permissionMapData.stats.staleNodeCount -gt 0) { $mapStaleChip = "<span class=`"mapStatChip`"><b>$($permissionMapData.stats.staleNodeCount)</b> stale</span>" }
+    $html += "                <span class=`"mapStatChip`"><b>$($permissionMapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($permissionMapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($permissionMapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($permissionMapData.stats.mediumNodeCount)</b> medium</span>$($mapStaleChip)"
     $html += @'
 
             </div>
@@ -8384,6 +8443,79 @@ else {
 '@
 }
 #endregion AgentIdentitiesSection
+
+#region StaleIdentitiesSection
+if ($script:staleIdentityAvailable) {
+    #index cu by objectId for owner/name lookup
+    $htCuByObjectId = @{}
+    foreach ($cuEntryRaw in $cu) {
+        $cuEntry = $cuEntryRaw
+        if ($cuEntry -is [System.Collections.IEnumerable] -and $cuEntry -isnot [System.Management.Automation.PSCustomObject] -and $cuEntry -isnot [string]) { $cuEntry = @($cuEntry)[0] }
+        if ($cuEntry -and $cuEntry.ObjectId) { $htCuByObjectId[[string]$cuEntry.ObjectId] = $cuEntry }
+    }
+
+    $staleHeaderNote = ''
+    if (-not $signInActivityAvailable) {
+        $staleHeaderNote = " <span style=`"color:var(--risk-medium);font-weight:600`">Sign-in activity was not available (needs Microsoft Graph 'AuditLog.Read.All'; beta report, global cloud only) - only disabled accounts are shown.</span>"
+    }
+
+    if ($staleIdentityCandidates.Count -gt 0) {
+        $htmlStaleSection = [System.Text.StringBuilder]::new()
+        [void]$htmlStaleSection.AppendLine("<button type=`"button`" class=`"collapsible`" id=`"staleIdentitiesSection`"><hr class=`"hr-textStale`" data-content=`"&nbsp;Stale identities ($($staleIdentityCandidates.Count))`" /></button>")
+        [void]$htmlStaleSection.AppendLine("    <div class=`"content TenantSummaryContent`">")
+        [void]$htmlStaleSection.AppendLine("        <i class=`"padlx fa fa-table`" aria-hidden=`"true`"></i> Identities with no sign-in newer than $($StaleIdentityDays) days (or disabled). Inactivity is a prompt to review, not an automatic delete - confirm with the owner, then disable (accountEnabled=false) as a reversible 'scream test' before soft-deleting. Managed identities are not covered by the sign-in report; external/multi-tenant apps are shown for review only.$($staleHeaderNote)")
+        [void]$htmlStaleSection.AppendLine("        <table class=`"summaryTable`">")
+        [void]$htmlStaleSection.AppendLine("            <thead><tr><th>Display name</th><th>Type</th><th>Object Id</th><th>App Id</th><th>Last sign-in</th><th>Reasons</th><th>Owner(s) to confirm with</th><th>Suggested action</th></tr></thead>")
+        [void]$htmlStaleSection.AppendLine("            <tbody>")
+        $staleRowCounter = 0
+        foreach ($staleCandidate in $staleIdentityCandidates) {
+            $staleRowCounter++
+            $staleRowClass = 'odd'
+            if ($staleRowCounter % 2 -eq 0) { $staleRowClass = 'even' }
+            $staleCu = $htCuByObjectId[[string]$staleCandidate.objectId]
+            $staleDisplayName = [string]$staleCandidate.objectId
+            $staleType = ''
+            if ($staleCu) {
+                $staleType = [string]$staleCu.ObjectType
+                $staleSp = $null
+                if ($staleCu.SP) { $staleSp = @($staleCu.SP)[0] }
+                $staleApp = $null
+                if ($staleCu.APP) { $staleApp = @($staleCu.APP)[0] }
+                if ($staleSp -and $staleSp.SPDisplayName) { $staleDisplayName = [string]$staleSp.SPDisplayName }
+                elseif ($staleApp -and $staleApp.APPDisplayName) { $staleDisplayName = [string]$staleApp.APPDisplayName }
+            }
+            $staleDisplayName = $staleDisplayName.Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')
+
+            $staleOwnerNames = [System.Collections.ArrayList]@()
+            if ($staleCu) {
+                foreach ($ownerCollectionName in @('SPOwners', 'APPAppOwners')) {
+                    if ($staleCu.PSObject.Properties[$ownerCollectionName] -and $staleCu.$ownerCollectionName) {
+                        foreach ($staleOwner in $staleCu.$ownerCollectionName) {
+                            if ($staleOwner.displayName) { $null = $staleOwnerNames.Add(([string]$staleOwner.displayName).Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')) }
+                        }
+                    }
+                }
+            }
+            $staleOwnerCell = '<span style="color:var(--risk-medium);font-weight:600">no owner</span>'
+            if ($staleOwnerNames.Count -gt 0) { $staleOwnerCell = (($staleOwnerNames | Select-Object -Unique) -join ', ') }
+
+            $staleReasonCell = ($staleCandidate.reasons -join '; ').Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')
+            $staleLastSignIn = $staleCandidate.lastSignIn
+            if (-not $staleLastSignIn) { $staleLastSignIn = '<span style="color:var(--ink-3)">never / n/a</span>' }
+            $staleActionCell = ([string]$staleCandidate.actionHint).Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')
+
+            [void]$htmlStaleSection.AppendLine("<tr class=`"$($staleRowClass)`"><td>$($staleDisplayName)</td><td>$($staleType)</td><td class=`"breakwordall`">$($staleCandidate.objectId)</td><td class=`"breakwordall`">$($staleCandidate.appId)</td><td>$($staleLastSignIn)</td><td>$($staleReasonCell)</td><td>$($staleOwnerCell)</td><td>$($staleActionCell)</td></tr>")
+        }
+        [void]$htmlStaleSection.AppendLine("            </tbody>")
+        [void]$htmlStaleSection.AppendLine("        </table>")
+        [void]$htmlStaleSection.AppendLine("    </div>")
+        $html += $htmlStaleSection.ToString()
+    }
+    else {
+        $html += "<button type=`"button`" class=`"nonCollapsible`" id=`"staleIdentitiesSection`"><hr class=`"hr-textStale fontGrey`" data-content=`"&nbsp;Stale identities (none)`" /></button>`n"
+    }
+}
+#endregion StaleIdentitiesSection
 
 $startSummary = Get-Date
 

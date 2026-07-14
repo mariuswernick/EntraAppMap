@@ -33,6 +33,13 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
   * Export the current (filtered) view as PNG image or JSON (nodes/edges)
   * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
   * Related parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
+* Sign-in activity &amp; stale identity detection
+  * Collects service principal sign-in activity (last sign-in, split by app-only/delegated and client/resource) for app registrations, enterprise apps and agent identities
+  * New 'Stale identities' report section flags identities with no sign-in newer than the threshold (default 90 days), disabled accounts and never-used registrations - each with the reason, the owner(s) to confirm with and a suggested action (confirm &rarr; disable &rarr; soft-delete)
+  * Mirrors Microsoft's 'Remove unused applications' logic: exempts freshly created apps, treats external/multi-tenant apps as review-only, and excludes managed identities from sign-in based staleness (not covered by the report)
+  * On the Permission Map: a 'Stale only' filter, a stale callout with last sign-in and reasons in the details panel
+  * Requires the Microsoft Graph application permission `AuditLog.Read.All`; the underlying report is beta and available in the global cloud only - without it the report still builds (disabled accounts are still flagged)
+  * Related parameters: `NoStaleIdentityDetection`, `StaleIdentityDays`
 * Microsoft Entra Agent ID coverage (AI agent identities)
   * Agent identities and agent identity blueprint principals are detected and typed (`SP Agent`, `SP Agent Blueprint`)
   * Dedicated 'Agent identities' report section: blueprint relationship, sponsors (the accountable humans) and classified permission counts per agent
@@ -90,6 +97,8 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
 * `NoPermissionMap` - Switch to skip building the interactive Permission Map in the HTML report
 * `MapIncludeUnclassifiedPermissions` - Switch to also create Permission Map nodes for unclassified permissions (default: only critical/medium permissions become dedicated nodes; unclassified permissions are aggregated into a single 'uses API' connection per Service Principal/API pair to keep the map readable)
 * `MapAssignedToEdgeLimit` - Per Service Principal cap for 'principal assigned to app' connections on the Permission Map; the real count is always shown in the details panel (default : 200)
+* `NoStaleIdentityDetection` - Switch to skip collecting service principal sign-in activity and the stale identity analysis
+* `StaleIdentityDays` - An identity with no sign-in newer than this many days (and older than this) is flagged as a stale identity candidate (default : 90)
 
 # Data
 
@@ -127,7 +136,8 @@ Microsoft Graph API | Application | __Group.Read.All__
 ~~Microsoft Graph API | Application | __RoleManagement.Read.All__~~  
 Microsoft Graph API | Application | __RoleManagement.Read.Directory__  
 Microsoft Graph API | Application | __User.Read.All__  
-Microsoft Graph API | Application | __AgentIdentity.ReadWrite.All__ (optional - only needed to list sponsors of Entra Agent ID agent identities; without it the report builds without sponsor information)
+Microsoft Graph API | Application | __AgentIdentity.ReadWrite.All__ (optional - only needed to list sponsors of Entra Agent ID agent identities; without it the report builds without sponsor information)  
+Microsoft Graph API | Application | __AuditLog.Read.All__ (optional - only needed for service principal sign-in activity / stale identity detection; without it disabled accounts are still flagged. Beta report, global cloud only)
 
 ### Azure DevOps
 
@@ -166,6 +176,8 @@ Permission Map - node selected with details panel (dark theme):
 
 # Updates
 
+* 20260714_4 (EntraAppMap fork)
+    * Sign-in activity &amp; stale identity detection: collects service principal sign-in activity and flags stale identity candidates (no recent sign-in, disabled, never used) in a new report section with owner and suggested action, plus a 'Stale only' map filter and stale callout in the details panel. Mirrors Microsoft's 'Remove unused applications' exemptions; needs `AuditLog.Read.All` and degrades gracefully without it
 * 20260714_3 (EntraAppMap fork)
     * Permission Map analysis features: shortest-path finding between any two nodes (with per-hop explanation), deep links (#map=&lt;nodeId&gt; selects and zooms to a node, updated while exploring), PNG/JSON export of the current filtered view, and a 'hide unconnected' filter
 * 20260714_2 (EntraAppMap fork)

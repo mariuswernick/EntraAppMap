@@ -67,7 +67,7 @@
         miResourceType: 'MI resource type', miResourceScope: 'MI resource scope',
         resource: 'Resource API', displayName: 'Display name', description: 'Description',
         classification: 'Classification', roleType: 'Role type', roleDefinitionId: 'Role definition ID',
-        blueprintId: 'Blueprint (app) ID'
+        blueprintId: 'Blueprint (app) ID', lastSignIn: 'Last sign-in'
     };
 
     /* ------------------------------------------------------------------ */
@@ -90,6 +90,7 @@
     var userAdjustedView = false;
     var pathMode = false, pathSource = null, pathResult = null;
     var hideUnconnected = false;
+    var staleOnly = false;
     var hintEl = null, hintTimer = null;
 
     /* deterministic RNG so the layout is stable between reloads */
@@ -209,6 +210,7 @@
                 var riskKey = n.r === 'critical' ? 'critical' : (n.r === 'medium' ? 'medium' : 'none');
                 vis = riskFilter[riskKey];
             }
+            if (vis && staleOnly) { vis = !!(n.m && n.m.stale); }
             n.visible = vis;
         });
         edges.forEach(function (e) { e.visible = e.sn.visible && e.dn.visible; });
@@ -858,13 +860,25 @@
         html += '</div>';
         html += '<div class="mapDetailsBody">';
 
-        /* properties */
         var m = node.m || {};
+
+        /* stale identity callout */
+        if (m.stale) {
+            html += '<div class="staleCallout"><div class="staleCalloutTitle">⚠ Stale identity candidate</div>';
+            if (m.staleReasons && m.staleReasons.length) {
+                html += '<ul class="staleReasons">';
+                m.staleReasons.forEach(function (reason) { html += '<li>' + escapeHtml(reason) + '</li>'; });
+                html += '</ul>';
+            }
+            html += '<div class="staleHintText">Confirm with the owner, then disable before soft-deleting.</div></div>';
+        }
+
+        /* properties */
         var rows = '';
         Object.keys(m).forEach(function (key) {
             var val = m[key];
             if (val === null || val === undefined || val === '') { return; }
-            if (key === 'aadRoles' || key === 'sponsors' || key === 'noSponsor') { return; }
+            if (key === 'aadRoles' || key === 'sponsors' || key === 'noSponsor' || key === 'stale' || key === 'staleReasons') { return; }
             if (key === 'appPermissions' || key === 'delegatedPermissions') {
                 var total = (val.critical || 0) + (val.medium || 0) + (val.unclassified || 0);
                 if (!total) { return; }
@@ -1033,6 +1047,11 @@
                 '<span class="chipDot"></span>' + escapeHtml(rc.label) + ' <span style="opacity:.6">' + count + '</span></button>';
         });
         html += '<span style="width:1px;height:20px;background:var(--hairline);margin:0 2px"></span>';
+        var staleCount = nodes.filter(function (n) { return n.m && n.m.stale; }).length;
+        if (staleCount) {
+            html += '<button type="button" class="mapChip off" data-special="stale" data-shape="circle" style="--chip-color:var(--risk-medium-fill)" title="Show only stale identity candidates">' +
+                '<span class="chipDot"></span>Stale only <span style="opacity:.6">' + staleCount + '</span></button>';
+        }
         html += '<button type="button" class="mapChip off" data-special="unconnected" data-shape="circle" style="--chip-color:var(--ink-3)" title="Hide nodes without any visible connection">' +
             '<span class="chipDot"></span>Hide unconnected</button>';
         filtersEl.innerHTML = html;
@@ -1045,6 +1064,7 @@
                 if (fkey) { typeFilter[fkey] = !typeFilter[fkey]; chip.classList.toggle('off', !typeFilter[fkey]); }
                 if (rkey) { riskFilter[rkey] = !riskFilter[rkey]; chip.classList.toggle('off', !riskFilter[rkey]); }
                 if (skey === 'unconnected') { hideUnconnected = !hideUnconnected; chip.classList.toggle('off', !hideUnconnected); }
+                if (skey === 'stale') { staleOnly = !staleOnly; chip.classList.toggle('off', !staleOnly); }
                 applyFilters();
             });
         });

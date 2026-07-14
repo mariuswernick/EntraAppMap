@@ -122,6 +122,19 @@
         </table>
     </div>
 
+    <button type="button" class="collapsible"><hr class="hr-textStale" data-content="&nbsp;Stale identities (3)" /></button>
+    <div class="content TenantSummaryContent">
+        <i class="padlx fa fa-table" aria-hidden="true"></i> Identities with no sign-in newer than 90 days (or disabled). Inactivity is a prompt to review, not an automatic delete - confirm with the owner, then disable (accountEnabled=false) as a reversible 'scream test' before soft-deleting. Managed identities are not covered by the sign-in report; external/multi-tenant apps are shown for review only.
+        <table class="summaryTable">
+            <thead><tr><th>Display name</th><th>Type</th><th>Object Id</th><th>App Id</th><th>Last sign-in</th><th>Reasons</th><th>Owner(s) to confirm with</th><th>Suggested action</th></tr></thead>
+            <tbody>
+                <tr class="odd"><td>Legacy CRM Connector</td><td>SP APP INT</td><td class="breakwordall">00000204-1111-2222-3333-000000000204</td><td class="breakwordall">000002c0-1111-2222-3333-0000000002c0</td><td>2024-05-28</td><td>no sign-in for 412 days</td><td>Uma Dietrich (guest)</td><td>Confirm with the owner(s), then disable (accountEnabled=false) before soft-deleting</td></tr>
+                <tr class="even"><td>Marketing Analytics</td><td>SP APP INT</td><td class="breakwordall">00000205-1111-2222-3333-000000000205</td><td class="breakwordall">000002c1-1111-2222-3333-0000000002c1</td><td><span style="color:var(--ink-3)">never / n/a</span></td><td>never signed in</td><td>David Garcia</td><td>Confirm with the owner(s), then disable (accountEnabled=false) before soft-deleting</td></tr>
+                <tr class="odd"><td>Reporting Dashboards</td><td>SP APP INT</td><td class="breakwordall">00000208-1111-2222-3333-000000000208</td><td class="breakwordall">000002c4-1111-2222-3333-0000000002c4</td><td>2025-01-05</td><td>account disabled; no sign-in for 190 days</td><td><span style="color:var(--risk-medium);font-weight:600">no owner</span></td><td>No owner to confirm with - investigate, then disable before soft-deleting</td></tr>
+            </tbody>
+        </table>
+    </div>
+
     <button type="button" class="collapsible"><hr class="hr-textAPIPermissions" data-content="&nbsp;App Role Assignments (API permissions Application)" /></button>
     <div class="content TenantSummaryContent">
         <i class="padlxx fa fa-table" aria-hidden="true"></i> example content area
@@ -156,7 +169,8 @@
             '<span class="mapStatChip"><b>' + stats.nodeCount + '</b> nodes</span>' +
             '<span class="mapStatChip"><b>' + stats.edgeCount + '</b> connections</span>' +
             '<span class="mapStatChip"><span class="dotCritical"></span><b>' + stats.criticalNodeCount + '</b> critical</span>' +
-            '<span class="mapStatChip"><span class="dotMedium"></span><b>' + stats.mediumNodeCount + '</b> medium</span>';
+            '<span class="mapStatChip"><span class="dotMedium"></span><b>' + stats.mediumNodeCount + '</b> medium</span>' +
+            (stats.staleNodeCount ? '<span class="mapStatChip"><b>' + stats.staleNodeCount + '</b> stale</span>' : '');
     </script>
     <script src="../pwsh/assets/azadspi-report.js"></script>
     <script src="../pwsh/assets/azadspi-map.js"></script>

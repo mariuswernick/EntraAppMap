@@ -142,6 +142,20 @@
         if (n.id === agentSales) { n.m.noSponsor = true; }
     });
 
+    /* stale identity examples (mirrors Get-AzADSPIStaleIdentity output on node metadata) */
+    function markStale(id, reasons, lastSignIn) {
+        nodes.forEach(function (n) {
+            if (n.id !== id) { return; }
+            n.m.stale = true;
+            n.m.staleReasons = reasons;
+            if (lastSignIn) { n.m.lastSignIn = lastSignIn; }
+            if (n.r !== 'critical') { n.r = 'medium'; }
+        });
+    }
+    markStale(crm, ['no sign-in for 412 days'], '2024-05-28');
+    markStale(marketing, ['never signed in'], null);
+    markStale(reporting, ['account disabled', 'no sign-in for 190 days'], '2025-01-05');
+
     /* risk rollup mirrors the builder: node.r = max of its permissions/roles */
     function setRisk(id, r) {
         for (var i = 0; i < nodes.length; i++) { if (nodes[i].id === id) { nodes[i].r = r; return; } }
@@ -241,11 +255,12 @@
     addEdge(devops, GRP_IT, 'memberOf');
 
     /* ---------------- stats ---------------- */
-    var typeCounts = {}, critical = 0, medium = 0;
+    var typeCounts = {}, critical = 0, medium = 0, stale = 0;
     nodes.forEach(function (n) {
         typeCounts[n.t] = (typeCounts[n.t] || 0) + 1;
         if (n.r === 'critical') { critical++; }
         else if (n.r === 'medium') { medium++; }
+        if (n.m && n.m.stale) { stale++; }
     });
 
     window.AZADSPI_SAMPLE_DATA = {
@@ -257,6 +272,7 @@
             typeCounts: typeCounts,
             criticalNodeCount: critical,
             mediumNodeCount: medium,
+            staleNodeCount: stale,
             includesUnclassifiedPermissionNodes: false
         }
     };

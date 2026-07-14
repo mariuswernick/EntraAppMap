@@ -19,6 +19,7 @@ $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path $PSScriptRoot -Parent
 
 . (Join-Path $repoRoot 'pwsh' 'functions' 'Build-AzADSPIMapData.ps1')
+. (Join-Path $repoRoot 'pwsh' 'functions' 'Get-AzADSPIStaleIdentity.ps1')
 
 $cu = Get-Content -Raw (Join-Path $PSScriptRoot 'sample-cu.json') | ConvertFrom-Json
 
@@ -29,7 +30,18 @@ $agentSponsors = @{
     )
 }
 
-$mapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$IncludeUnclassifiedPermissions -AgentSponsors $agentSponsors
+#mock service principal sign-in activity keyed by appId (mirrors $htSignInActivityByAppId built by the main script)
+$referenceDate = [datetime]'2026-07-14T00:00:00Z'
+$signInActivityByAppId = @{
+    #HR Sync Service - recently active (not stale)
+    '20000000-0000-0000-0000-000000000001' = [PSCustomObject]@{ lastSignInDateTime = '2026-07-01T09:00:00Z' }
+    #Adobe (external) - inactive but external, reported for review only
+    '20000000-0000-0000-0000-000000000002' = [PSCustomObject]@{ lastSignInDateTime = '2024-01-01T09:00:00Z' }
+    #note: no entry for the orphaned app-only registration -> 'never signed in'
+}
+$staleness = Get-AzADSPIStaleIdentity -cu $cu -SignInActivityByAppId $signInActivityByAppId -SignInDataAvailable $true -StaleIdentityDays 90 -ReferenceDate $referenceDate
+
+$mapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$IncludeUnclassifiedPermissions -AgentSponsors $agentSponsors -Staleness $staleness
 Write-Host "Built map data: $($mapData.stats.nodeCount) nodes, $($mapData.stats.edgeCount) edges ($($mapData.stats.criticalNodeCount) critical, $($mapData.stats.mediumNodeCount) medium)"
 
 #sanity checks - fail loudly on schema drift
@@ -53,6 +65,19 @@ $sponsorEdge = $mapData.edges | Where-Object { $_.k -eq 'sponsors' } | Select-Ob
 if (-not $sponsorEdge) { throw 'expected a sponsors edge for the sample agent identity' }
 $sponsorlessAgent = $mapData.nodes | Where-Object { $_.t -eq 'agent' -and $_.m.noSponsor } | Select-Object -First 1
 if (-not $sponsorlessAgent) { throw 'expected the sponsorless agent identity to be flagged (m.noSponsor)' }
+
+#stale identity checks: the orphaned app-only registration has no sign-in entry -> 'never signed in'
+$orphanStale = $staleness['60000000-0000-0000-0000-000000000002']
+if (-not $orphanStale.isStale) { throw 'expected the orphaned app-only registration to be flagged stale (never signed in)' }
+if ($orphanStale.reasons -notcontains 'never signed in') { throw "expected 'never signed in' reason, got: $($orphanStale.reasons -join ', ')" }
+#managed identity is never flagged from sign-in data
+$miStale = $staleness['10000000-0000-0000-0000-000000000003']
+if ($miStale.signInAvailable) { throw 'managed identity should be marked signInAvailable=false (not covered by the sign-in report)' }
+#the stale node carries metadata for the map
+$staleNode = $mapData.nodes | Where-Object { $_.m.stale } | Select-Object -First 1
+if (-not $staleNode) { throw 'expected at least one stale node on the map' }
+if ($mapData.stats.staleNodeCount -lt 1) { throw 'expected stats.staleNodeCount >= 1' }
+Write-Host "Stale identity candidates on map: $($mapData.stats.staleNodeCount)"
 Write-Host 'Sanity checks passed'
 
 $mapDataJson = ($mapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'
@@ -86,7 +111,7 @@ $html = [System.Text.StringBuilder]::new()
             <span class="mapSubtitle">Users, apps and their permissions - click a node to explore its connections</span>
             <div class="mapStats">
 '@)
-[void]$html.AppendLine("                <span class=`"mapStatChip`"><b>$($mapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($mapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($mapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($mapData.stats.mediumNodeCount)</b> medium</span>")
+[void]$html.AppendLine("                <span class=`"mapStatChip`"><b>$($mapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($mapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($mapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($mapData.stats.mediumNodeCount)</b> medium</span><span class=`"mapStatChip`"><b>$($mapData.stats.staleNodeCount)</b> stale</span>")
 [void]$html.AppendLine(@'
             </div>
         </header>
