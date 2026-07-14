@@ -27,7 +27,10 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
 * Interactive Permission Map (embedded at the top of the HTML report)
   * Force-directed, zoomable map of users, apps / Service Principals, Managed Identities, groups, permissions and Entra ID directory roles - pan, zoom, drag, click a node to explore its connections in a details panel
   * Permissions are colored by classification (critical / medium, driven by permissionClassification.json); risky identities get a colored risk ring
-  * Search, node type and risk filters, legend, fullscreen mode
+  * Search, node type and risk filters, 'hide unconnected' filter, legend, fullscreen mode
+  * Path finding: click 'Path', pick two nodes and the shortest connection is highlighted with each hop explained (e.g. how a guest user reaches Mail.ReadWrite)
+  * Deep links: selecting a node updates the URL (#map=...) so a view of a specific identity can be shared; opening the link selects and zooms to that node
+  * Export the current (filtered) view as PNG image or JSON (nodes/edges)
   * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
   * Related parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
 * Microsoft Entra Agent ID coverage (AI agent identities)
@@ -163,6 +166,8 @@ Permission Map - node selected with details panel (dark theme):
 
 # Updates
 
+* 20260714_3 (EntraAppMap fork)
+    * Permission Map analysis features: shortest-path finding between any two nodes (with per-hop explanation), deep links (#map=&lt;nodeId&gt; selects and zooms to a node, updated while exploring), PNG/JSON export of the current filtered view, and a 'hide unconnected' filter
 * 20260714_2 (EntraAppMap fork)
     * Microsoft Entra Agent ID coverage: agent identities and blueprint principals are detected and typed, get their own 'Agent identities' report section (blueprint, sponsors, classified permission counts) and appear on the Permission Map with 'instance of blueprint' and sponsor relationships; sponsorless agent identities are flagged
 * 20260714 (EntraAppMap fork)

@@ -88,6 +88,9 @@
     var labelBudget = 350;
     var labelOrder = [];
     var userAdjustedView = false;
+    var pathMode = false, pathSource = null, pathResult = null;
+    var hideUnconnected = false;
+    var hintEl = null, hintTimer = null;
 
     /* deterministic RNG so the layout is stable between reloads */
     function mulberry32(seed) {
@@ -118,6 +121,8 @@
         colors.edgeDim = v('--map-edge-dim', 'rgba(136,136,136,0.15)');
         colors.halo = v('--map-halo', 'rgba(42,120,214,0.25)');
         colors.surface = v('--bg-surface', '#ffffff');
+        colors.page = v('--bg-page', '#ffffff');
+        colors.accent = v('--accent', '#2a78d6');
         inkColors.primary = v('--ink', '#0b0b0b');
         inkColors.secondary = v('--ink-2', '#52514e');
         inkColors.muted = v('--ink-3', '#898781');
@@ -207,7 +212,23 @@
             n.visible = vis;
         });
         edges.forEach(function (e) { e.visible = e.sn.visible && e.dn.visible; });
+        if (hideUnconnected) {
+            var visibleEdgeCount = {};
+            edges.forEach(function (e) {
+                if (!e.visible) { return; }
+                visibleEdgeCount[e.s] = (visibleEdgeCount[e.s] || 0) + 1;
+                visibleEdgeCount[e.d] = (visibleEdgeCount[e.d] || 0) + 1;
+            });
+            nodes.forEach(function (n) { if (n.visible && !visibleEdgeCount[n.id]) { n.visible = false; } });
+        }
         if (selectedNode && !selectedNode.visible) { select(null); }
+        if (pathResult) {
+            var pathBroken = false;
+            Object.keys(pathResult.nodeSet).forEach(function (id) {
+                if (nodeById[id] && !nodeById[id].visible) { pathBroken = true; }
+            });
+            if (pathBroken) { clearPath(); }
+        }
         if (hoveredNode && !hoveredNode.visible) { hoveredNode = null; hideTooltip(); }
         reheat(0.35);
     }
@@ -352,6 +373,21 @@
         for (i = 0; i < edges.length; i++) {
             e = edges[i];
             if (!e.visible) { continue; }
+            if (pathResult) {
+                if (e.onPath) {
+                    ctx.strokeStyle = colors.accent;
+                    ctx.lineWidth = Math.max(1.2, 2.4 / view.k);
+                }
+                else {
+                    ctx.strokeStyle = colors.edgeDim;
+                    ctx.lineWidth = Math.max(0.4, 1 / view.k);
+                }
+                ctx.beginPath();
+                ctx.moveTo(e.sn.x, e.sn.y);
+                ctx.lineTo(e.dn.x, e.dn.y);
+                ctx.stroke();
+                continue;
+            }
             var inFocus = !hasSelection || (neighborSet && neighborSet[e.sn.id] && neighborSet[e.dn.id] && (e.sn === selectedNode || e.dn === selectedNode));
             if (hasSelection && !inFocus) {
                 ctx.strokeStyle = colors.edgeDim;
@@ -381,7 +417,9 @@
         for (i = 0; i < nodes.length; i++) {
             n = nodes[i];
             if (!n.visible) { continue; }
-            var dimmed = hasSelection && !(neighborSet && neighborSet[n.id]);
+            var dimmed;
+            if (pathResult) { dimmed = !pathResult.nodeSet[n.id]; }
+            else { dimmed = hasSelection && !(neighborSet && neighborSet[n.id]); }
             drawNode(n, dimmed);
         }
 
@@ -396,9 +434,9 @@
         for (i = 0; i < labelOrder.length && labelsDrawn < labelBudget; i++) {
             n = labelOrder[i];
             if (!n.visible) { continue; }
-            var isFocus = n === hoveredNode || n === selectedNode || (hasSelection && neighborSet && neighborSet[n.id]);
+            var isFocus = n === hoveredNode || n === selectedNode || (hasSelection && neighborSet && neighborSet[n.id]) || (pathResult && pathResult.nodeSet[n.id]);
             if (!isFocus && n.radius * view.k < 8.5 && n.degree < minDegreeForLabel) { continue; }
-            if (hasSelection && !isFocus) { continue; }
+            if ((hasSelection || pathResult) && !isFocus) { continue; }
             var text = n.l || '';
             if (text.length > 28) { text = text.slice(0, 27) + '…'; }
             /* declutter: high-degree labels win, overlapping lower-priority labels are skipped */
@@ -548,9 +586,9 @@
     /* ------------------------------------------------------------------ */
     /* view helpers                                                        */
     /* ------------------------------------------------------------------ */
-    function fitToView() {
+    function fitToView(nodeList) {
         var minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity, count = 0;
-        nodes.forEach(function (n) {
+        (nodeList || nodes).forEach(function (n) {
             if (!n.visible) { return; }
             count++;
             if (n.x < minX) { minX = n.x; }
@@ -612,6 +650,7 @@
     function select(node) {
         selectedNode = node;
         neighborSet = null;
+        pathResult = null;
         if (node) {
             neighborSet = {};
             neighborSet[node.id] = true;
@@ -622,7 +661,181 @@
         else {
             detailsEl.classList.remove('open');
         }
+        updateDeepLink(node ? node.id : null);
         scheduleFrame();
+    }
+
+    /* deep link: #map=<nodeId> selects the node on load and updates as you explore */
+    function updateDeepLink(nodeId) {
+        try {
+            if (nodeId) { history.replaceState(null, '', '#map=' + encodeURIComponent(nodeId)); }
+            else if (location.hash.indexOf('#map=') === 0) { history.replaceState(null, '', location.pathname + location.search); }
+        } catch (e) { /* history API unavailable (some file:// contexts) */ }
+    }
+
+    function applyDeepLink() {
+        var match = location.hash.match(/^#map=(.+)$/);
+        if (!match) { return; }
+        var node = nodeById[decodeURIComponent(match[1])];
+        if (!node || !node.visible) { return; }
+        select(node);
+        setTimeout(function () { if (selectedNode === node) { flyTo(node); } }, 1600);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* path finding (BFS over the currently visible graph)                 */
+    /* ------------------------------------------------------------------ */
+    function findPath(sourceNode, targetNode) {
+        if (!sourceNode || !targetNode || !sourceNode.visible || !targetNode.visible) { return null; }
+        var prev = {};
+        prev[sourceNode.id] = { node: sourceNode, via: null, edge: null };
+        var queue = [sourceNode];
+        var qi = 0;
+        while (qi < queue.length) {
+            var current = queue[qi++];
+            if (current === targetNode) { break; }
+            var adj = adjacency[current.id] || [];
+            for (var i = 0; i < adj.length; i++) {
+                var next = adj[i].node, viaEdge = adj[i].edge;
+                if (!next.visible || !viaEdge.visible) { continue; }
+                if (prev[next.id]) { continue; }
+                prev[next.id] = { node: next, via: current, edge: viaEdge };
+                queue.push(next);
+            }
+        }
+        if (!prev[targetNode.id]) { return null; }
+        var pathNodes = [], pathEdges = [];
+        var walker = prev[targetNode.id];
+        while (walker) {
+            pathNodes.unshift(walker.node);
+            if (walker.edge) { pathEdges.unshift(walker.edge); }
+            walker = walker.via ? prev[walker.via.id] : null;
+        }
+        return { nodes: pathNodes, edges: pathEdges };
+    }
+
+    function clearPath() {
+        if (!pathResult) { return; }
+        pathResult = null;
+        edges.forEach(function (e) { e.onPath = false; });
+        detailsEl.classList.remove('open');
+        scheduleFrame();
+    }
+
+    function exitPathMode() {
+        pathMode = false;
+        pathSource = null;
+        var btn = document.getElementById('mapBtnPath');
+        if (btn) { btn.classList.remove('active'); }
+        hideHint();
+    }
+
+    function applyPath(sourceNode, targetNode) {
+        var found = findPath(sourceNode, targetNode);
+        if (!found) {
+            showHint('No path between "' + (sourceNode.l || '') + '" and "' + (targetNode.l || '') + '" in the current view', 3500);
+            return;
+        }
+        selectedNode = null;
+        neighborSet = null;
+        edges.forEach(function (e) { e.onPath = false; });
+        pathResult = { nodeSet: {}, list: found.nodes };
+        found.nodes.forEach(function (n) { pathResult.nodeSet[n.id] = true; });
+        found.edges.forEach(function (e) { e.onPath = true; });
+        renderPathPanel(found.nodes, found.edges);
+        detailsEl.classList.add('open');
+        updateDeepLink(null);
+        userAdjustedView = true;
+        fitToView(found.nodes);
+        scheduleFrame();
+    }
+
+    function renderPathPanel(pathNodes, pathEdges) {
+        var hops = pathEdges.length;
+        var html = '';
+        html += '<div class="mapDetailsHead">';
+        html += '<span class="detailSwatch" style="background:' + escapeHtml(colors.accent) + '"></span>';
+        html += '<div><h3>Path found</h3>';
+        html += '<div class="detailSub">' + escapeHtml(pathNodes[0].l) + ' → ' + escapeHtml(pathNodes[pathNodes.length - 1].l) + ' · ' + hops + ' hop' + (hops === 1 ? '' : 's') + '</div>';
+        html += '</div>';
+        html += '<button type="button" class="mapDetailsClose" aria-label="Close">×</button>';
+        html += '</div>';
+        html += '<div class="mapDetailsBody"><h4>Steps</h4><div class="neighborList">';
+        pathNodes.forEach(function (n, idx) {
+            html += '<button type="button" data-node="' + escapeHtml(n.id) + '">';
+            html += '<span class="nDot" style="background:' + escapeHtml(nodeColor(n)) + '"></span>';
+            html += '<span>' + escapeHtml(n.l) + '</span>';
+            html += '<span class="nKind">' + escapeHtml((TYPE_CONFIG[n.t] || {}).label || n.t) + '</span>';
+            html += '</button>';
+            if (idx < pathEdges.length) {
+                var edge = pathEdges[idx];
+                html += '<div style="padding:0 8px 0 24px;color:var(--ink-3);font-size:11px">↓ ' + escapeHtml(EDGE_KIND_LABEL[edge.k] || edge.k) + (edge.l ? ' (' + escapeHtml(edge.l) + ')' : '') + '</div>';
+            }
+        });
+        html += '</div></div>';
+        detailsEl.innerHTML = html;
+        detailsEl.querySelector('.mapDetailsClose').addEventListener('click', clearPath);
+        detailsEl.querySelectorAll('button[data-node]').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                var next = nodeById[btn.getAttribute('data-node')];
+                if (next && next.visible) { select(next); flyTo(next); }
+            });
+        });
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* hint bubble                                                         */
+    /* ------------------------------------------------------------------ */
+    function showHint(text, autoHideMs) {
+        if (!hintEl) { return; }
+        hintEl.textContent = text;
+        hintEl.classList.add('visible');
+        if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+        if (autoHideMs) { hintTimer = setTimeout(hideHint, autoHideMs); }
+    }
+
+    function hideHint() {
+        if (hintEl) { hintEl.classList.remove('visible'); }
+        if (hintTimer) { clearTimeout(hintTimer); hintTimer = null; }
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* export (current filtered view)                                      */
+    /* ------------------------------------------------------------------ */
+    function exportPng() {
+        var tmp = document.createElement('canvas');
+        tmp.width = canvas.width;
+        tmp.height = canvas.height;
+        var tctx = tmp.getContext('2d');
+        tctx.fillStyle = colors.page || '#ffffff';
+        tctx.fillRect(0, 0, tmp.width, tmp.height);
+        tctx.drawImage(canvas, 0, 0);
+        var link = document.createElement('a');
+        link.download = 'permission-map.png';
+        link.href = tmp.toDataURL('image/png');
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function exportJson() {
+        var data = { exportedAt: new Date().toISOString(), view: 'currently visible nodes/edges (filters applied)', nodes: [], edges: [] };
+        nodes.forEach(function (n) {
+            if (!n.visible) { return; }
+            data.nodes.push({ id: n.id, t: n.t, l: n.l, sub: n.sub || null, r: n.r || null, degree: n.degree, m: n.m || null });
+        });
+        edges.forEach(function (e) {
+            if (!e.visible) { return; }
+            data.edges.push({ s: e.s, d: e.d, k: e.k, l: e.l || null, r: e.r || null });
+        });
+        var blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        var link = document.createElement('a');
+        link.download = 'permission-map.json';
+        link.href = URL.createObjectURL(blob);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(function () { URL.revokeObjectURL(link.href); }, 5000);
     }
 
     function escapeHtml(s) {
@@ -819,14 +1032,19 @@
             html += '<button type="button" class="mapChip" data-risk="' + rc.key + '" data-shape="circle" style="--chip-color:var(' + rc.colorVar + ')">' +
                 '<span class="chipDot"></span>' + escapeHtml(rc.label) + ' <span style="opacity:.6">' + count + '</span></button>';
         });
+        html += '<span style="width:1px;height:20px;background:var(--hairline);margin:0 2px"></span>';
+        html += '<button type="button" class="mapChip off" data-special="unconnected" data-shape="circle" style="--chip-color:var(--ink-3)" title="Hide nodes without any visible connection">' +
+            '<span class="chipDot"></span>Hide unconnected</button>';
         filtersEl.innerHTML = html;
 
         filtersEl.querySelectorAll('.mapChip').forEach(function (chip) {
             chip.addEventListener('click', function () {
                 var fkey = chip.getAttribute('data-filter');
                 var rkey = chip.getAttribute('data-risk');
+                var skey = chip.getAttribute('data-special');
                 if (fkey) { typeFilter[fkey] = !typeFilter[fkey]; chip.classList.toggle('off', !typeFilter[fkey]); }
                 if (rkey) { riskFilter[rkey] = !riskFilter[rkey]; chip.classList.toggle('off', !riskFilter[rkey]); }
+                if (skey === 'unconnected') { hideUnconnected = !hideUnconnected; chip.classList.toggle('off', !hideUnconnected); }
                 applyFilters();
             });
         });
@@ -838,6 +1056,34 @@
         var btnZoomOut = document.getElementById('mapBtnZoomOut');
         var btnLayout = document.getElementById('mapBtnLayout');
         var btnFull = document.getElementById('mapBtnFullscreen');
+
+        /* analysis buttons are injected so the generated markup stays unchanged */
+        var buttonsRow = sectionEl.querySelector('.mapButtons');
+        if (buttonsRow) {
+            function injectBtn(id, label, title) {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.className = 'mapBtn';
+                b.id = id;
+                b.textContent = label;
+                b.title = title;
+                if (btnFull) { buttonsRow.insertBefore(b, btnFull); } else { buttonsRow.appendChild(b); }
+                return b;
+            }
+            var btnPath = injectBtn('mapBtnPath', 'Path', 'Find the shortest path between two nodes');
+            var btnPng = injectBtn('mapBtnPng', 'PNG', 'Export the current view as PNG image');
+            var btnJson = injectBtn('mapBtnJson', 'JSON', 'Export the currently visible nodes/edges as JSON');
+            btnPath.addEventListener('click', function () {
+                if (pathMode) { exitPathMode(); return; }
+                pathMode = true;
+                pathSource = selectedNode || null;
+                btnPath.classList.add('active');
+                if (pathSource) { showHint('Path: "' + (pathSource.l || '') + '" is the start - click the target node (Esc to cancel)'); }
+                else { showHint('Path: click the start node, then the target node (Esc to cancel)'); }
+            });
+            btnPng.addEventListener('click', exportPng);
+            btnJson.addEventListener('click', exportJson);
+        }
         if (btnFit) { btnFit.addEventListener('click', function () { userAdjustedView = false; fitToView(); }); }
         if (btnZoomIn) { btnZoomIn.addEventListener('click', function () { zoomBy(1.35); }); }
         if (btnZoomOut) { btnZoomOut.addEventListener('click', function () { zoomBy(1 / 1.35); }); }
@@ -926,7 +1172,21 @@
             var sx = ev.clientX - rect.left, sy = ev.clientY - rect.top;
             if (!moved) {
                 var hit = findNodeAt(sx, sy);
-                select(hit || null);
+                if (pathMode) {
+                    if (hit && !pathSource) {
+                        pathSource = hit;
+                        showHint('Path: "' + (hit.l || '') + '" selected as start - now click the target node (Esc to cancel)');
+                    }
+                    else if (hit && hit !== pathSource) {
+                        var pathFrom = pathSource;
+                        exitPathMode();
+                        applyPath(pathFrom, hit);
+                    }
+                }
+                else {
+                    clearPath();
+                    select(hit || null);
+                }
             }
             draggingNode = null;
             panning = false;
@@ -956,12 +1216,14 @@
 
         document.addEventListener('keydown', function (ev) {
             if (ev.key === 'Escape') {
+                if (pathMode) { exitPathMode(); return; }
                 if (sectionEl.classList.contains('azadspiFullscreen')) {
                     sectionEl.classList.remove('azadspiFullscreen');
                     var btnFull = document.getElementById('mapBtnFullscreen');
                     if (btnFull) { btnFull.textContent = '⛶'; }
                     resize();
                 }
+                clearPath();
                 select(null);
             }
         });
@@ -1014,6 +1276,11 @@
         initButtons();
         initLegend();
         initPointer();
+
+        hintEl = document.createElement('div');
+        hintEl.className = 'mapHint';
+        stageEl.appendChild(hintEl);
+
         resize();
         window.addEventListener('resize', resize);
         document.addEventListener('azadspi:themechange', function () {
@@ -1025,6 +1292,7 @@
         alpha = 1;
         simRunning = true;
         scheduleFrame();
+        applyDeepLink();
     }
 
     function applyFiltersInitialState() {
@@ -1038,5 +1306,18 @@
         init();
     }
 
-    window.AzADSPIMap = { reinit: init };
+    window.AzADSPIMap = {
+        reinit: init,
+        selectById: function (id) {
+            var node = nodeById[id];
+            if (node && node.visible) { select(node); flyTo(node); return true; }
+            return false;
+        },
+        pathBetween: function (sourceId, targetId) {
+            var src = nodeById[sourceId], dst = nodeById[targetId];
+            if (!src || !dst) { return false; }
+            applyPath(src, dst);
+            return !!pathResult;
+        }
+    };
 })();
