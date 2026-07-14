@@ -1,6 +1,6 @@
 /* AzADServicePrincipalInsights - interactive Permission Map
    Self-contained force-directed graph on <canvas>. No external libraries.
-   Data contract: <script id="azadspiMapData" type="application/json"> { nodes, edges, stats } </script>
+   Data contract: JSON in the element with id "azadspiMapData": { nodes, edges, stats }
    Node: { id, t, l, sub, r, m }   Edge: { s, d, k, l, r } */
 (function () {
     'use strict';
