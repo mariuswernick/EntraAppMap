@@ -30,6 +30,10 @@ function Build-AzADSPIMapData {
     .PARAMETER AgentSponsors
     Hashtable keyed by agent identity object id; values are lists of @{ id; displayName; type } sponsor entries
     (the humans accountable for an agent identity). Agent identities without a sponsor are flagged.
+
+    .PARAMETER Staleness
+    Hashtable keyed by object id with stale identity verdicts (from Get-AzADSPIStaleIdentity). Stale
+    identities are marked on their node (m.stale, m.staleReasons, m.lastSignIn) and get at least medium risk.
     #>
     [CmdletBinding()]
     param(
@@ -43,7 +47,10 @@ function Build-AzADSPIMapData {
         $AssignedToEdgeLimit = 200,
 
         [hashtable]
-        $AgentSponsors = @{}
+        $AgentSponsors = @{},
+
+        [hashtable]
+        $Staleness = @{}
     )
 
     $htNodes = @{}
@@ -224,6 +231,16 @@ function Build-AzADSPIMapData {
                 $nodeRisk = riskMax $nodeRisk 'medium'
             }
         }
+        #stale identity verdict
+        if ($Staleness.ContainsKey([string]$entry.ObjectId)) {
+            $staleVerdict = $Staleness[[string]$entry.ObjectId]
+            if ($staleVerdict.lastSignIn) { $meta.lastSignIn = $staleVerdict.lastSignIn }
+            if ($staleVerdict.isStale) {
+                $meta.stale = $true
+                $meta.staleReasons = @($staleVerdict.reasons)
+                $nodeRisk = riskMax $nodeRisk 'medium'
+            }
+        }
         #endregion node metadata + risk rollup
 
         addMapNode -id $nodeId -t $nodeType -l $label -sub $objectType -r $nodeRisk -m $meta
@@ -397,11 +414,13 @@ function Build-AzADSPIMapData {
     $typeCounts = @{}
     $criticalNodeCount = 0
     $mediumNodeCount = 0
+    $staleNodeCount = 0
     foreach ($node in $htNodes.Values) {
         if (-not $typeCounts.ContainsKey($node.t)) { $typeCounts[$node.t] = 0 }
         $typeCounts[$node.t] = $typeCounts[$node.t] + 1
         if ($node.r -eq 'critical') { $criticalNodeCount++ }
         elseif ($node.r -eq 'medium') { $mediumNodeCount++ }
+        if ($node.m -and $node.m.stale) { $staleNodeCount++ }
     }
 
     return [PSCustomObject]@{
@@ -413,6 +432,7 @@ function Build-AzADSPIMapData {
             typeCounts = $typeCounts
             criticalNodeCount = $criticalNodeCount
             mediumNodeCount = $mediumNodeCount
+            staleNodeCount = $staleNodeCount
             includesUnclassifiedPermissionNodes = [bool]$IncludeUnclassifiedPermissions
         }
     }

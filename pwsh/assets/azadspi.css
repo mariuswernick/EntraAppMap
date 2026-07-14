@@ -356,6 +356,7 @@ button.collapsible.active::after { transform: rotate(225deg); top: -28px; }
 .hr-textHiPoUsers { --section-accent: var(--cat-hipo); }
 .hr-textManagedIdentity { --section-accent: var(--cat-mi); }
 .hr-textAgent { --section-accent: var(--cat-agent); }
+.hr-textStale { --section-accent: var(--risk-medium-fill); }
 .hr-textSecretCert { --section-accent: var(--cat-secret); }
 
 /* muted (empty) sections */
@@ -869,6 +870,17 @@ input.reset, .btn, input[type="button"].flt {
 .riskBadge::before { content: "\26A0"; font-size: 10px; }
 .riskBadge.critical { background: color-mix(in srgb, var(--risk-critical) 14%, transparent); color: var(--risk-critical); }
 .riskBadge.medium { background: color-mix(in srgb, var(--risk-medium-fill) 18%, transparent); color: var(--risk-medium); }
+.staleCallout {
+    margin-bottom: 12px;
+    padding: 10px 12px;
+    border: 1px solid color-mix(in srgb, var(--risk-medium-fill) 45%, var(--hairline));
+    border-radius: var(--radius-s);
+    background: color-mix(in srgb, var(--risk-medium-fill) 12%, transparent);
+}
+.staleCalloutTitle { font-weight: 650; font-size: 12.5px; color: var(--risk-medium); }
+.staleReasons { margin: 6px 0 4px; padding-left: 18px; font-size: 12.5px; }
+.staleReasons li { margin: 1px 0; }
+.staleHintText { font-size: 11.5px; color: var(--ink-2); margin-top: 4px; }
 .neighborList { display: flex; flex-direction: column; gap: 2px; }
 .neighborList button {
     display: flex;
