@@ -1,10 +1,8 @@
-__AzADServicePrincipalInsights aka AzADSPI__
+__EntraAppMap__
 
-Insights and change tracking on Microsoft Entra ID Service Principals (Enterprise Applications, Applications / Managed Identities)
+> **Note:** This tool is a fork of [AzADServicePrincipalInsights (aka AzADSPI)](https://github.com/JulianHayward/AzADServicePrincipalInsights) by [Julian Hayward](https://github.com/JulianHayward). It builds on AzADSPI's data collection and reporting foundation and adds an interactive Permission Map and a redesigned report. All credit for the original tool goes to Julian Hayward.
 
-aka links:
-* aka.ms/AzADSPI  
-* aka.ms/AzADServicePrincipalInsights
+Insights and change tracking on Microsoft Entra ID Service Principals (Enterprise Applications, Applications / Managed Identities) - with an interactive Permission Map of users, apps and their permissions.
 
 # Content
 - [Content](#content)
@@ -20,9 +18,7 @@ aka links:
 - [Execute as Service Principal / Application](#execute-as-service-principal--application)
 - [Preview](#preview)
 - [Updates](#updates)
-- [AzAdvertizer](#azadvertizer)
-- [Azure Governance Visualizer aka AzGovViz](#azure-governance-visualizer-aka-azgovviz)
-- [Closing Note](#closing-note)
+- [Credits & Closing Note](#credits--closing-note)
 
 
 
@@ -34,9 +30,6 @@ aka links:
   * Search, node type and risk filters, legend, fullscreen mode
   * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
   * Related parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
-
-  ![PermissionMap light](img/permissionmap_light.png)
-  ![PermissionMap dark](img/permissionmap_dark.png)
 * Modern report design
   * Self-contained stylesheet (no external CSS dependency), light and dark theme with toggle (persisted) and OS preference detection
   * For offline design iteration see [dev/README.md](dev/README.md)
@@ -154,130 +147,26 @@ Connect-AzAccount -ServicePrincipal -TenantId <tenantId> -Credential $pscredenti
 
 # Preview
 
-![previewHTML](img/azadserviceprincipalinsights_preview_entra-id.png)  
-![previewHTML2](img/preview2.png)  
-![previewJSON](img/previewJSON.png)
+Permission Map (light theme):
+
+![PermissionMap light](img/permissionmap_light.png)
+
+Permission Map - node selected with details panel (dark theme):
+
+![PermissionMap dark](img/permissionmap_dark.png)
 
 # Updates
-* 20250121
-    * Fix issue #40 - Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.2.5
-    * Try to fix issue #41 - optimize hashtable processing
-    * Update ARM REST API versions to latest
-* 20240730
-    * Fix SkipAzContextSubscriptionValidation check by using NoAzureResourceSideRelations (PR 38)
-* 20240419
-    * Fix hardcoded ARM API Url using north europe (PR 31)
-    * Fix ContentLengthLimitExceeded error when using log ingestion API (PR 32)
-* 20240212
-    * fix issue 27
-* 20240208
-    * Contribution from @Cloud-Architekt to ingest data from the JSON files to an Azure Log Analytics workspace custom table using data collection rule / data collection endpoint. [Microsoft Entra Workload ID - Advanced Detections and Enrichment in Microsoft Sentinel](https://www.cloud-architekt.net/entra-workload-id-advanced-detection-enrichment/)
-      * Ready for Azure DevOps and GitHub; configure in the pipeline/workflow YAML files
-    * Change PowerShell parallel handling / batches
-    * Optimize array handling / best practices
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.2.0 (support endpoint *.ingest.monitor.azure.com)
-* 20231218 - thanks @kaiaschulz
-    * Fix scope of subscriptions to process. The ARM entities API may still return subscriptions that are meanwhile delted and therefore should not be processed in the data collection
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.86
-* 20231217
-    * Fix for SP names that contain escapable characters
-    * Update GitHub workflows to support webApp publishing thanks @RS-MPersson
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.85
-* 20231121 - thanks @cjtous1
-    * HTML updates
-        * Added `SPTags` & `AppTags` to the following tables:
-            * Service Principals
-            * Service Principal AAD RoleAssignments
-            * Service Principal App RoleAssignments
-            * Service Principal App RoleAssignedTo
-            * Service Principal Oauth Permission grants
-            * Service Principal Azure RoleAssignments
-        * Added `AppNotes` to the Service Principals table
-    * Added the following CSV file exports
-        * Service Principals
-        * Service Principal Owners
-        * Application Owners
-        * Service Principal Owned Objects
-        * Service Principal AAD RoleAssignments
-        * Service Principal AAD RoleAssignedOn
-        * Service Principal App RoleAssignedTo
-        * Service Principal App RoleAssignments
-        * Service Principal Azure RoleAssignments
-        * Service Principal Group memberships
-    * Fix: `NoCsvExport` is now working and preventing CSV files from being generated if true.
-    * Fix: `NoJsonExport` is now working and preventing JSON files from being generated if true.
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.84
-* 20231001
-    * fix hardcoded delimiter for export-csv - thanks @cjtous1
-* 20230316
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.70
-* 20221017
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.40
-        * Issue #10 - Handle error `404` User Assigned Managed Identity / ResourceGroup not found  
-* 20221014
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.38 
-        * Handle error `405` [Support for federated identity credentials not enabled](https://learn.microsoft.com/en-us/azure/active-directory/develop/workload-identity-federation-considerations#errors)
-* 20221008
-    * New feature - Managed Identity User Assigned Federated Identity Credentials
-    * Rearrange JSON output for Managed Identity associated Azure Resources
-* 20221007
-    * New feature - Managed Identity User Assigned associated Azure Resources
-    * Changed parameter name `NoAzureRoleAssignments` to `NoAzureResourceSideRelations`
-        * Using `NoAzureResourceSideRelations`:
-            * No (Azure Resource side) RBAC Role assignments collection
-            * No (Azure Resource side) Policy assignments collection
-            * No (Azure Resource side) Resources collection ('Managed Identity User Assigned associated Azure Resources' feature annul)
-    * Azure DevOps pipeline yml - update vmImage ~~ubuntu-20.04~~ ubuntu-22.04
-    * Minor fixes and optimizations
-    * Use [AzAPICall](https://aka.ms/AzAPICall) PowerShell module version 1.1.33 
-* 20220717
-    * Removed identity governance state validation
-    * Use AzAPICall PowerShell module version 1.1.18  
-* 20220630
-    * __Breaking Change__ on the Azure side: Instead of __RoleManagement.Read.All__ we require __RoleManagement.Read.Directory__
-* 20220622_1
-    * Fix `/providers/Microsoft.Authorization/roleAssignmentScheduleInstances` AzAPICall errorhandling (error 400, 500)
-    * Optimize procedure to update the AzAPICall module
-    * Use AzAPICall PowerShell module version 1.1.17
-* 20220613_1
-    * use AzAPICall module version 1.1.16
-    * enhance HiPo Users HTML output
-    * minor fixes
-* 20220609_1
-    * add parameter `-CriticalAADRoles` (defaults: Global Administrator, Privileged Role Administrator, Privileged Authentication Administrator)
-    * add HiPo Users - A HiPo User has direct or indirect ownership on a ServicePrincipal(s) with classified permissions (AppRole, AAD Role, Azure Role, OAuthPermissionGrant)
-    * use AzAPICall module version 1.1.13
-    * minor fixes
-* 20220505_1
-    * fix: `using:scriptPath` variable in foreach parallel (this is only relevant for Azure DevOps and GitHub if you have a non default folder structure in your repository) - thanks Matt :)
-* 20220501_1
-    * parameter `-ManagementGroupId` accepts multiple Management Groups in form of an array e.g. `.\pwsh\AzADServicePrincipalInsights.ps1 -ManagementGroupId @('mgId0', 'mgId1')`
-    * new parameter `-OnlyProcessSPsThatHaveARoleAssignmentInTheRelevantMGScopes`. You may want to only report on Service Principals that have RBAC permissions on Azure resources at and below that Management Group scope(s) (Management Groups, Subscriptions, Resource Groups and Resources)
-    * Role assignments on Azure resources - mark those RBAC Role assignments which leverage a RBAC Role definition that can create role assignments as critical
-    * updated YAML workflow/pipeline files
-    * minor bug fixes
-    * performance optimization
-* 20220425_2
-    * add parameter `-ManagementGroupId` (if undefined, then Tenant Root Management Group will be used)
-    * use AzAPICall module version 1.1.11
-* 20220404_1 
-    * add FederatedIdentityCredentials
 
-# AzAdvertizer
+* 20260714 (EntraAppMap fork)
+    * New interactive Permission Map embedded at the top of the HTML report (users, apps/Service Principals, Managed Identities, groups, permissions, Entra ID directory roles; risk-classified coloring; search, filters, details panel; fully self-contained, no external JavaScript libraries)
+    * Full report redesign: self-contained stylesheet, light/dark theme with persisted toggle, modernized collapsible sections, tables and charts
+    * New parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
+    * New `dev/` harness for offline design iteration (see [dev/README.md](dev/README.md))
 
-![alt text](img/azadvertizer70.png "example output")
+For the change history of the original tool this fork is based on, see the [AzADServicePrincipalInsights repository](https://github.com/JulianHayward/AzADServicePrincipalInsights).
 
-Also check <https://www.azadvertizer.net> - AzAdvertizer helps you to keep up with the pace by providing overview and insights on new releases and changes/updates for Azure Governance capabilities such as Azure Policy's Policy definitions, initiatives (Set definitions), aliases and Azure RBAC's Role definitions and resource provider operations.
+# Credits & Closing Note
 
-# Azure Governance Visualizer aka AzGovViz
+This tool is a fork of [AzADServicePrincipalInsights (aka AzADSPI)](https://github.com/JulianHayward/AzADServicePrincipalInsights) by [Julian Hayward](https://github.com/JulianHayward) - all credit for the original data collection and reporting foundation goes to him and the AzADSPI contributors. It also relies on the [AzAPICall](https://aka.ms/AzAPICall) PowerShell module.
 
-![alt text](img/AzGovVizConnectingDots_v4.2_h120.png "example output")
-
-Also check out the [__Azure Governance Visualizer__](https://aka.ms/AzGovViz). The tool is intended to help you to get a holistic overview on your technical Azure Governance implementation by connecting the dots.  
-It is a PowerShell script that iterates your Azure Tenant's Management Group hierarchy down to Subscription level, it captures most relevant Azure governance capabilities such as Azure Policy, RBAC and Blueprints and a lot more..
-* Listed as [tool](https://docs.microsoft.com/en-us/azure/cloud-adoption-framework/reference/tools-templates#govern) for the Govern discipline in the Microsoft Cloud Adoption Framework (CAF)  
-* Listed as [security monitoring tool](https://docs.microsoft.com/en-us/azure/architecture/framework/security/monitor-tools) in the Microsoft Well Architected Framework (WAF)
-
-# Closing Note
-
-Please note that while being developed by a Microsoft employee, AzADServicePrincipalInsights is not a Microsoft service or product. AzADServicePrincipalInsights is a personal/community driven project, there are none implicit or explicit obligations related to this project, it is provided 'as is' with no warranties and confer no rights.
+EntraAppMap is a personal/community driven project. It is not a Microsoft service or product, there are no implicit or explicit obligations related to this project, it is provided 'as is' with no warranties and confers no rights.
