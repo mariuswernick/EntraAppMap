@@ -212,6 +212,77 @@
         ]
     },
     {
+        "ObjectType": "SP Agent Blueprint",
+        "ObjectId": "10000000-0000-0000-0000-000000000010",
+        "SP": [
+            {
+                "SPObjectId": "10000000-0000-0000-0000-000000000010",
+                "SPAppId": "20000000-0000-0000-0000-000000000010",
+                "SPDisplayName": "Copilot Studio Agent Blueprint",
+                "SPAppOwnerOrganizationId": "30000000-0000-0000-0000-000000000001",
+                "SPServicePrincipalType": "Application",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2025-10-20T09:00:00Z"
+            }
+        ]
+    },
+    {
+        "ObjectType": "SP Agent",
+        "ObjectId": "10000000-0000-0000-0000-000000000011",
+        "SP": [
+            {
+                "SPObjectId": "10000000-0000-0000-0000-000000000011",
+                "SPAppId": "20000000-0000-0000-0000-000000000011",
+                "SPDisplayName": "agent-hr-assistant",
+                "SPAppOwnerOrganizationId": "30000000-0000-0000-0000-000000000001",
+                "SPServicePrincipalType": "ServiceIdentity",
+                "SPAgentBlueprintId": "20000000-0000-0000-0000-000000000010",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2025-11-02T10:00:00Z"
+            }
+        ],
+        "SPAppRoleAssignments": [
+            {
+                "AppRoleAssignmentId": "ara-020",
+                "AppRoleAssignmentResourceId": "90000000-0000-0000-0000-000000000001",
+                "AppRoleAssignmentResourceDisplayName": "Microsoft Graph",
+                "AppRoleId": "75359482-378d-4052-8f01-80520e7db3cd",
+                "AppRolePermission": "Files.ReadWrite.All",
+                "AppRolePermissionSensitivity": "medium",
+                "AppRoleDisplayName": "Read and write files in all site collections",
+                "AppRoleDescription": "Allows the app to read, create, update and delete all files in all site collections."
+            }
+        ]
+    },
+    {
+        "ObjectType": "SP Agent",
+        "ObjectId": "10000000-0000-0000-0000-000000000012",
+        "SP": [
+            {
+                "SPObjectId": "10000000-0000-0000-0000-000000000012",
+                "SPAppId": "20000000-0000-0000-0000-000000000012",
+                "SPDisplayName": "agent-sales-briefing",
+                "SPAppOwnerOrganizationId": "30000000-0000-0000-0000-000000000001",
+                "SPServicePrincipalType": "ServiceIdentity",
+                "SPAgentBlueprintId": "20000000-0000-0000-0000-000000000010",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2025-12-14T08:30:00Z"
+            }
+        ],
+        "SPAppRoleAssignments": [
+            {
+                "AppRoleAssignmentId": "ara-021",
+                "AppRoleAssignmentResourceId": "90000000-0000-0000-0000-000000000001",
+                "AppRoleAssignmentResourceDisplayName": "Microsoft Graph",
+                "AppRoleId": "b633e1c5-b582-4048-a93e-9f11b44c7e96",
+                "AppRolePermission": "Mail.Send",
+                "AppRolePermissionSensitivity": "critical",
+                "AppRoleDisplayName": "Send mail as any user",
+                "AppRoleDescription": "Allows the app to send mail as any user without a signed-in user."
+            }
+        ]
+    },
+    {
         "ObjectType": "APP AppOnly",
         "ObjectId": "60000000-0000-0000-0000-000000000002",
         "APP": [

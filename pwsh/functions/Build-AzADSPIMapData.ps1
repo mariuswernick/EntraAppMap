@@ -9,10 +9,11 @@ function Build-AzADSPIMapData {
 
     Node schema : id, t (type), l (label), sub (subtitle), r (risk: critical|medium|$null), m (metadata for the details panel)
     Node types  : app (SP+App internal), appExt (external/multi-tenant SP), mi (managed identity),
+                  agent (Entra Agent ID agent identity), agentBp (agent identity blueprint principal),
                   user, guest, group, resource (permission target API without own $cu entry),
                   permApp (application permission), permDel (delegated permission), role (Entra directory role)
     Edge schema : s (source node id), d (target node id), k (kind), l (optional label), r (risk)
-    Edge kinds  : owns, permApp, permDel, onApi, usesApi, assignedTo, memberOf, aadRole
+    Edge kinds  : owns, permApp, permDel, onApi, usesApi, assignedTo, memberOf, aadRole, sponsors, instanceOf
 
     .PARAMETER cu
     The enriched collection built during data collection.
@@ -25,6 +26,10 @@ function Build-AzADSPIMapData {
     .PARAMETER AssignedToEdgeLimit
     Per Service Principal cap for 'user/group assigned to app' edges (some apps have thousands of assignments).
     The real count is always available in the details panel.
+
+    .PARAMETER AgentSponsors
+    Hashtable keyed by agent identity object id; values are lists of @{ id; displayName; type } sponsor entries
+    (the humans accountable for an agent identity). Agent identities without a sponsor are flagged.
     #>
     [CmdletBinding()]
     param(
@@ -35,13 +40,18 @@ function Build-AzADSPIMapData {
         $IncludeUnclassifiedPermissions,
 
         [int]
-        $AssignedToEdgeLimit = 200
+        $AssignedToEdgeLimit = 200,
+
+        [hashtable]
+        $AgentSponsors = @{}
     )
 
     $htNodes = @{}
     $htNodeIsStub = @{}
     $edges = [System.Collections.ArrayList]@()
     $htEdgeDedupe = @{}
+    $htAppIdToNodeId = @{}
+    $pendingBlueprintLinks = [System.Collections.ArrayList]@()
 
     #region helpers
     function addMapNode {
@@ -108,6 +118,8 @@ function Build-AzADSPIMapData {
         #node type from ObjectType discriminator
         switch -Wildcard ($objectType) {
             'SP MI*' { $nodeType = 'mi'; break }
+            'SP Agent Blueprint' { $nodeType = 'agentBp'; break }
+            'SP Agent*' { $nodeType = 'agent'; break }
             'SP APP EXT' { $nodeType = 'appExt'; break }
             'SP EXT' { $nodeType = 'appExt'; break }
             'SP APP INT' { $nodeType = 'app'; break }
@@ -199,9 +211,45 @@ function Build-AzADSPIMapData {
                 $meta.miResourceScope = $mi.resourceScope
             }
         }
+        if ($nodeType -eq 'agent') {
+            if ($sp -and $sp.SPAgentBlueprintId) { $meta.blueprintId = $sp.SPAgentBlueprintId }
+            $agentSponsorList = $null
+            if ($AgentSponsors.ContainsKey([string]$entry.ObjectId)) { $agentSponsorList = $AgentSponsors[[string]$entry.ObjectId] }
+            if ($agentSponsorList) {
+                $meta.sponsors = @(foreach ($sponsorEntry in $agentSponsorList) { @{ name = $sponsorEntry.displayName; type = $sponsorEntry.type } })
+            }
+            else {
+                #an agent identity without an accountable human is a governance gap
+                $meta.noSponsor = $true
+                $nodeRisk = riskMax $nodeRisk 'medium'
+            }
+        }
         #endregion node metadata + risk rollup
 
         addMapNode -id $nodeId -t $nodeType -l $label -sub $objectType -r $nodeRisk -m $meta
+        if ($sp -and $sp.SPAppId) { $htAppIdToNodeId[[string]$sp.SPAppId] = $nodeId }
+
+        #region agent relationships (blueprint + sponsors)
+        if ($nodeType -eq 'agent') {
+            if ($sp -and $sp.SPAgentBlueprintId) {
+                $null = $pendingBlueprintLinks.Add(@{ agentNodeId = $nodeId; blueprintAppId = [string]$sp.SPAgentBlueprintId })
+            }
+            if ($AgentSponsors.ContainsKey([string]$entry.ObjectId)) {
+                foreach ($sponsorEntry in $AgentSponsors[[string]$entry.ObjectId]) {
+                    if (-not $sponsorEntry.id) { continue }
+                    if ($sponsorEntry.type -eq 'group') {
+                        $sponsorNodeId = "group|$($sponsorEntry.id)"
+                        addMapNode -id $sponsorNodeId -t 'group' -l $sponsorEntry.displayName -sub 'Group' -r $null -m ([ordered]@{ objectId = $sponsorEntry.id }) -stub
+                    }
+                    else {
+                        $sponsorNodeId = "user|$($sponsorEntry.id)"
+                        addMapNode -id $sponsorNodeId -t 'user' -l $sponsorEntry.displayName -sub 'User (sponsor)' -r $null -m ([ordered]@{ objectId = $sponsorEntry.id }) -stub
+                    }
+                    addMapEdge -s $sponsorNodeId -d $nodeId -k 'sponsors'
+                }
+            }
+        }
+        #endregion agent relationships (blueprint + sponsors)
 
         #region owners
         $ownerSources = @()
@@ -333,6 +381,16 @@ function Build-AzADSPIMapData {
             }
         }
         #endregion Entra directory roles
+    }
+
+    #resolve agent -> blueprint links (the blueprint principal SP shares the blueprint's appId)
+    foreach ($blueprintLink in $pendingBlueprintLinks) {
+        $blueprintNodeId = $htAppIdToNodeId[$blueprintLink.blueprintAppId]
+        if (-not $blueprintNodeId) {
+            $blueprintNodeId = "bp|$($blueprintLink.blueprintAppId)"
+            addMapNode -id $blueprintNodeId -t 'agentBp' -l "Blueprint $($blueprintLink.blueprintAppId)" -sub 'Agent identity blueprint' -r $null -m ([ordered]@{ appId = $blueprintLink.blueprintAppId }) -stub
+        }
+        addMapEdge -s $blueprintLink.agentNodeId -d $blueprintNodeId -k 'instanceOf'
     }
 
     #stats for the map header

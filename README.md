@@ -30,6 +30,11 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
   * Search, node type and risk filters, legend, fullscreen mode
   * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
   * Related parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
+* Microsoft Entra Agent ID coverage (AI agent identities)
+  * Agent identities and agent identity blueprint principals are detected and typed (`SP Agent`, `SP Agent Blueprint`)
+  * Dedicated 'Agent identities' report section: blueprint relationship, sponsors (the accountable humans) and classified permission counts per agent
+  * Agents appear on the Permission Map as magenta triangles with 'instance of blueprint' and sponsor relationships; agent identities without a sponsor are flagged as a governance gap
+  * Sponsor collection requires the optional Microsoft Graph application permission `AgentIdentity.ReadWrite.All` - without it the report still builds, just without sponsor information
 * Modern report design
   * Self-contained stylesheet (no external CSS dependency), light and dark theme with toggle (persisted) and OS preference detection
   * For offline design iteration see [dev/README.md](dev/README.md)
@@ -118,7 +123,8 @@ Microsoft Graph API | Application | __Application.Read.All__
 Microsoft Graph API | Application | __Group.Read.All__  
 ~~Microsoft Graph API | Application | __RoleManagement.Read.All__~~  
 Microsoft Graph API | Application | __RoleManagement.Read.Directory__  
-Microsoft Graph API | Application | __User.Read.All__
+Microsoft Graph API | Application | __User.Read.All__  
+Microsoft Graph API | Application | __AgentIdentity.ReadWrite.All__ (optional - only needed to list sponsors of Entra Agent ID agent identities; without it the report builds without sponsor information)
 
 ### Azure DevOps
 
@@ -157,6 +163,8 @@ Permission Map - node selected with details panel (dark theme):
 
 # Updates
 
+* 20260714_2 (EntraAppMap fork)
+    * Microsoft Entra Agent ID coverage: agent identities and blueprint principals are detected and typed, get their own 'Agent identities' report section (blueprint, sponsors, classified permission counts) and appear on the Permission Map with 'instance of blueprint' and sponsor relationships; sponsorless agent identities are flagged
 * 20260714 (EntraAppMap fork)
     * New interactive Permission Map embedded at the top of the HTML report (users, apps/Service Principals, Managed Identities, groups, permissions, Entra ID directory roles; risk-classified coloring; search, filters, details panel; fully self-contained, no external JavaScript libraries)
     * Full report redesign: self-contained stylesheet, light/dark theme with persisted toggle, modernized collapsible sections, tables and charts
