@@ -32,7 +32,10 @@ Param
     [int]$ApplicationCertificateExpiryMax = 730,
     [string]$DirectorySeparatorChar = [IO.Path]::DirectorySeparatorChar,
     [switch]$OnlyProcessSPsThatHaveARoleAssignmentInTheRelevantMGScopes,
-    [array]$CriticalAADRoles = @('62e90394-69f5-4237-9190-012177145e10', 'e8611ab8-c189-46e8-94e1-60213ab1f814', '7be44c8a-adaf-4e2a-84d6-ab2649e08a13') #Global Administrator, Privileged Role Administrator, Privileged Authentication Administrator
+    [array]$CriticalAADRoles = @('62e90394-69f5-4237-9190-012177145e10', 'e8611ab8-c189-46e8-94e1-60213ab1f814', '7be44c8a-adaf-4e2a-84d6-ab2649e08a13'), #Global Administrator, Privileged Role Administrator, Privileged Authentication Administrator
+    [switch]$NoPermissionMap, #skip building the interactive Permission Map in the HTML report
+    [switch]$MapIncludeUnclassifiedPermissions, #also create map nodes for unclassified permissions (default: only critical/medium; unclassified are aggregated per API)
+    [int]$MapAssignedToEdgeLimit = 200 #per Service Principal cap for 'principal assigned to app' map edges
 )
 
 $Error.clear()
@@ -443,6 +446,19 @@ function getClassification {
 }
 $funcGetClassification = $function:getClassification.ToString()
 #endregion getClassification
+
+#region PermissionMapFunction
+$script:permissionMapAvailable = $false
+if (-not $NoPermissionMap) {
+    try {
+        . ".\$($ScriptPath)\functions\Build-AzADSPIMapData.ps1"
+        $script:permissionMapAvailable = $true
+    }
+    catch {
+        Write-Host "Permission Map builder '.\$($ScriptPath)\functions\Build-AzADSPIMapData.ps1' not found - the report will be built without the interactive Permission Map"
+    }
+}
+#endregion PermissionMapFunction
 
 #region resolveObectsById
 function resolveObectsById($objects, $targetHt) {
@@ -8047,6 +8063,26 @@ if (-not $NoCsvExport) {
 
 Write-Host 'Building HTML'
 
+#region PermissionMapDataAndAssets
+$azadspiCss = $null
+$azadspiReportJs = $null
+$azadspiMapJs = $null
+try { $azadspiCss = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi.css" -ErrorAction Stop } catch { Write-Host " Report stylesheet '.\$($ScriptPath)\assets\azadspi.css' not found - falling back to hosted stylesheet" }
+try { $azadspiReportJs = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi-report.js" -ErrorAction Stop } catch { Write-Host " Report script '.\$($ScriptPath)\assets\azadspi-report.js' not found - falling back to hosted scripts" }
+try { $azadspiMapJs = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi-map.js" -ErrorAction Stop } catch { Write-Host " Map script '.\$($ScriptPath)\assets\azadspi-map.js' not found - the report will be built without the interactive Permission Map" }
+
+$permissionMapDataJson = $null
+$permissionMapData = $null
+if ($script:permissionMapAvailable -and $azadspiMapJs) {
+    Write-Host ' Building Permission Map data'
+    $startPermissionMap = Get-Date
+    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit
+    $permissionMapDataJson = ($permissionMapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'
+    $endPermissionMap = Get-Date
+    Write-Host " Building Permission Map data ($($permissionMapData.stats.nodeCount) nodes, $($permissionMapData.stats.edgeCount) edges) duration: $((New-TimeSpan -Start $startPermissionMap -End $endPermissionMap).TotalSeconds) seconds"
+}
+#endregion PermissionMapDataAndAssets
+
 $html = $null
 $html += @"
 <!doctype html>
@@ -8057,19 +8093,31 @@ $html += @"
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>$($Product)</title>
+"@
+
+if ($azadspiCss) {
+    #theme bootstrap: stamp the persisted theme before first paint to avoid a flash
+    $html += @'
+    <script>
+        (function () { try { var t = localStorage.getItem('azadspiTheme'); if (t === 'dark' || t === 'light') { document.documentElement.setAttribute('data-theme', t); } } catch (e) { } })();
+    </script>
+    <style>
+'@
+    $html += $azadspiCss
+    $html += @'
+    </style>
+'@
+}
+else {
+    $html += @'
     <link rel="stylesheet" type="text/css" href="https://www.azadvertizer.net/azadserviceprincipalinsights/css/azadserviceprincipalinsightsmain_001_010.css">
-    <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/jquery-3.6.0.min.js"></script>
-    <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/jquery-ui-1.13.0.min.js"></script>
+'@
+}
+
+$html += @'
     <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/fontawesome-0c0b5cbde8.js"></script>
     <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/tablefilter/tablefilter.js"></script>
     <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/chartjs-2.8.0.min.js"></script>
-
-    <script>
-        `$(window).on('load', function () {
-            // Animate loader off screen
-            `$(".se-pre-con").fadeOut("slow");;
-        });
-    </script>
 
     <script>
     // Quick and simple export target #table_id into a csv
@@ -8171,12 +8219,52 @@ $html += @"
 </head>
 <body>
     <div class="se-pre-con"></div>
-"@
+'@
 
 $html += @"
     <div class="summprnt" id="summprnt">
     <div class="summary" id="summary"><p class="pbordered">Microsoft Entra ID Service Principal Insights ($($ProductVersion))</p>
 "@
+
+#region PermissionMapSection
+if ($permissionMapDataJson) {
+    $html += @'
+    <section id="identityMap" class="mapSection">
+        <header class="mapHeader">
+            <h2>Permission Map</h2>
+            <span class="mapSubtitle">Users, apps and their permissions - click a node to explore its connections</span>
+            <div class="mapStats">
+'@
+    $html += "                <span class=`"mapStatChip`"><b>$($permissionMapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($permissionMapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($permissionMapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($permissionMapData.stats.mediumNodeCount)</b> medium</span>"
+    $html += @'
+
+            </div>
+        </header>
+        <div class="mapToolbar">
+            <div class="mapSearchWrap">
+                <input id="mapSearch" type="search" placeholder="Search users, apps, permissions…" autocomplete="off" />
+                <div class="mapSearchResults" id="mapSearchResults"></div>
+            </div>
+            <div class="mapFilters" id="mapFilters"></div>
+            <div class="mapButtons">
+                <button type="button" class="mapBtn" id="mapBtnZoomIn" title="Zoom in">+</button>
+                <button type="button" class="mapBtn" id="mapBtnZoomOut" title="Zoom out">&#8722;</button>
+                <button type="button" class="mapBtn" id="mapBtnFit" title="Fit to view">Fit</button>
+                <button type="button" class="mapBtn" id="mapBtnLayout" title="Re-run layout">Layout</button>
+                <button type="button" class="mapBtn" id="mapBtnFullscreen" title="Fullscreen">&#x26F6;</button>
+            </div>
+        </div>
+        <div class="mapStage">
+            <canvas id="mapCanvas"></canvas>
+            <div class="mapLegend" id="mapLegend"></div>
+            <div class="mapTooltip"></div>
+            <aside class="mapDetails" id="mapDetails"></aside>
+        </div>
+    </section>
+'@
+    $html += '<script id="azadspiMapData" type="application/json">' + $permissionMapDataJson + '</script>'
+}
+#endregion PermissionMapSection
 
 $startSummary = Get-Date
 
@@ -8208,9 +8296,26 @@ $html += @"
 
 $html += @'
     </div>
+'@
+
+if ($azadspiReportJs) {
+    $html += '<script>' + "`n" + $azadspiReportJs + "`n" + '</script>'
+}
+else {
+    $html += @'
+    <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/jquery-3.6.0.min.js"></script>
     <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/toggle_v004_004.js"></script>
     <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/collapsetable_v004_002.js"></script>
     <script src="https://www.azadvertizer.net/azadserviceprincipalinsights/js/version_v001_003.js"></script>
+    <script>window.addEventListener('load', function () { document.querySelectorAll('.se-pre-con').forEach(function (el) { el.style.display = 'none'; }); });</script>
+'@
+}
+
+if ($permissionMapDataJson -and $azadspiMapJs) {
+    $html += '<script>' + "`n" + $azadspiMapJs + "`n" + '</script>'
+}
+
+$html += @'
 </body>
 </html>
 '@
