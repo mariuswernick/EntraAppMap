@@ -28,7 +28,10 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
   * Force-directed, zoomable map of users, apps / Service Principals, Managed Identities, groups, permissions and Entra ID directory roles - pan, zoom, drag, click a node to explore its connections in a details panel
   * Permissions are colored by classification (critical / medium, driven by permissionClassification.json); risky identities get a colored risk ring
   * Search, node type and risk filters, 'hide unconnected' filter, legend, fullscreen mode
+  * Investigation workspace: overview, one/two-hop identity investigation and layered exposure lenses; relationship filters; low-risk external SP aggregation; contextual node actions; map-to-table navigation
   * Path finding: click 'Path', pick two nodes and the shortest connection is highlighted with each hop explained (e.g. how a guest user reaches Mail.ReadWrite)
+  * Findings and table workspace: cross-report search, risk/change presets, actionable evidence rows, consistent table controls, row detail drawer and bidirectional table/map focus
+  * Change lens: automatically compares with the latest prior local JSON state (or an explicit `PreviousStatePath`) and highlights added/changed identities while reporting removals
   * Deep links: selecting a node updates the URL (#map=...) so a view of a specific identity can be shared; opening the link selects and zooms to that node
   * Export the current (filtered) view as PNG image or JSON (nodes/edges)
   * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
@@ -99,6 +102,7 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
 * `MapAssignedToEdgeLimit` - Per Service Principal cap for 'principal assigned to app' connections on the Permission Map; the real count is always shown in the details panel (default : 200)
 * `NoStaleIdentityDetection` - Switch to skip collecting service principal sign-in activity and the stale identity analysis
 * `StaleIdentityDays` - An identity with no sign-in newer than this many days (and older than this) is flagged as a stale identity candidate (default : 90)
+* `PreviousStatePath` - Optional path to a prior `JSON_SP_*` state directory for change comparison. When omitted, the newest prior state in `OutputPath` is used automatically
 
 # Data
 
@@ -176,6 +180,10 @@ Permission Map - node selected with details panel (dark theme):
 
 # Updates
 
+* 20260714_5 (EntraAppMap fork)
+    * Investigation workspace: purpose-built overview, identity and exposure map lenses; relationship filtering; low-risk external SP aggregation; contextual actions; bidirectional map/table navigation; findings presets and row detail drawers
+    * Change lens: compares the current collection with a previous local JSON state and surfaces added, changed and removed identity counts
+    * Table accessibility and usability improvements: consistent local search/export/density/column controls, keyboard focus, accessible table semantics and responsive detail presentation
 * 20260714_4 (EntraAppMap fork)
     * Sign-in activity &amp; stale identity detection: collects service principal sign-in activity and flags stale identity candidates (no recent sign-in, disabled, never used) in a new report section with owner and suggested action, plus a 'Stale only' map filter and stale callout in the details panel. Mirrors Microsoft's 'Remove unused applications' exemptions; needs `AuditLog.Read.All` and degrades gracefully without it
 * 20260714_3 (EntraAppMap fork)

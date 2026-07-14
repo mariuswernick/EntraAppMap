@@ -31,9 +31,26 @@ function Build-AzADSPIMapData {
     Hashtable keyed by agent identity object id; values are lists of @{ id; displayName; type } sponsor entries
     (the humans accountable for an agent identity). Agent identities without a sponsor are flagged.
 
+    .PARAMETER AgentSponsorsAvailable
+    False when the sponsor API could not be queried. In that case sponsor state is reported as unknown and
+    identities are not incorrectly flagged as sponsorless.
+
     .PARAMETER Staleness
     Hashtable keyed by object id with stale identity verdicts (from Get-AzADSPIStaleIdentity). Stale
     identities are marked on their node (m.stale, m.staleReasons, m.lastSignIn) and get at least medium risk.
+
+    .PARAMETER ChangeState
+    Hashtable keyed by object id with an 'added' or 'changed' value. The value is copied to m.change
+    so the map and findings workspace can show the delta from a previous JSON state directory.
+
+    .PARAMETER ChangeFields
+    Hashtable keyed by object id with the changed top-level collection/property names.
+
+    .PARAMETER RemovedStateCount
+    Number of identities present in the previous JSON state but absent from the current collection.
+
+    .PARAMETER RemovedIdentities
+    Optional summaries of removed identities. These are emitted as non-connected ghost nodes with m.change='removed'.
     #>
     [CmdletBinding()]
     param(
@@ -49,8 +66,23 @@ function Build-AzADSPIMapData {
         [hashtable]
         $AgentSponsors = @{},
 
+        [bool]
+        $AgentSponsorsAvailable = $true,
+
         [hashtable]
-        $Staleness = @{}
+        $Staleness = @{},
+
+        [hashtable]
+        $ChangeState = @{},
+
+        [hashtable]
+        $ChangeFields = @{},
+
+        [int]
+        $RemovedStateCount = 0,
+
+        [array]
+        $RemovedIdentities = @()
     )
 
     $htNodes = @{}
@@ -225,11 +257,12 @@ function Build-AzADSPIMapData {
             if ($agentSponsorList) {
                 $meta.sponsors = @(foreach ($sponsorEntry in $agentSponsorList) { @{ name = $sponsorEntry.displayName; type = $sponsorEntry.type } })
             }
-            else {
+            elseif ($AgentSponsorsAvailable) {
                 #an agent identity without an accountable human is a governance gap
                 $meta.noSponsor = $true
                 $nodeRisk = riskMax $nodeRisk 'medium'
             }
+            else { $meta.sponsorsUnavailable = $true }
         }
         #stale identity verdict
         if ($Staleness.ContainsKey([string]$entry.ObjectId)) {
@@ -239,6 +272,12 @@ function Build-AzADSPIMapData {
                 $meta.stale = $true
                 $meta.staleReasons = @($staleVerdict.reasons)
                 $nodeRisk = riskMax $nodeRisk 'medium'
+            }
+        }
+        if ($ChangeState.ContainsKey([string]$entry.ObjectId)) {
+            $meta.change = [string]$ChangeState[[string]$entry.ObjectId]
+            if ($ChangeFields.ContainsKey([string]$entry.ObjectId)) {
+                $meta.changeFields = @($ChangeFields[[string]$entry.ObjectId])
             }
         }
         #endregion node metadata + risk rollup
@@ -410,17 +449,41 @@ function Build-AzADSPIMapData {
         addMapEdge -s $blueprintLink.agentNodeId -d $blueprintNodeId -k 'instanceOf'
     }
 
+    foreach ($removedIdentity in $RemovedIdentities) {
+        if (-not $removedIdentity.objectId) { continue }
+        $removedType = switch -Wildcard ([string]$removedIdentity.objectType) {
+            'SP MI*' { 'mi'; break }
+            'SP Agent Blueprint' { 'agentBp'; break }
+            'SP Agent*' { 'agent'; break }
+            'SP APP EXT' { 'appExt'; break }
+            'SP EXT' { 'appExt'; break }
+            default { 'app' }
+        }
+        $removedMeta = [ordered]@{
+            objectId = [string]$removedIdentity.objectId
+            objectType = [string]$removedIdentity.objectType
+            change = 'removed'
+            removed = $true
+        }
+        if ($removedIdentity.appId) { $removedMeta.appId = [string]$removedIdentity.appId }
+        addMapNode -id "sp|$($removedIdentity.objectId)" -t $removedType -l ([string]$removedIdentity.label) -sub "Removed · $($removedIdentity.objectType)" -r $null -m $removedMeta
+    }
+
     #stats for the map header
     $typeCounts = @{}
     $criticalNodeCount = 0
     $mediumNodeCount = 0
     $staleNodeCount = 0
+    $addedNodeCount = 0
+    $changedNodeCount = 0
     foreach ($node in $htNodes.Values) {
         if (-not $typeCounts.ContainsKey($node.t)) { $typeCounts[$node.t] = 0 }
         $typeCounts[$node.t] = $typeCounts[$node.t] + 1
         if ($node.r -eq 'critical') { $criticalNodeCount++ }
         elseif ($node.r -eq 'medium') { $mediumNodeCount++ }
         if ($node.m -and $node.m.stale) { $staleNodeCount++ }
+        if ($node.m -and $node.m.change -eq 'added') { $addedNodeCount++ }
+        elseif ($node.m -and $node.m.change -eq 'changed') { $changedNodeCount++ }
     }
 
     return [PSCustomObject]@{
@@ -433,6 +496,9 @@ function Build-AzADSPIMapData {
             criticalNodeCount = $criticalNodeCount
             mediumNodeCount = $mediumNodeCount
             staleNodeCount = $staleNodeCount
+            addedNodeCount = $addedNodeCount
+            changedNodeCount = $changedNodeCount
+            removedNodeCount = $RemovedStateCount
             includesUnclassifiedPermissionNodes = [bool]$IncludeUnclassifiedPermissions
         }
     }

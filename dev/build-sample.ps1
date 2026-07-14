@@ -41,7 +41,13 @@ $signInActivityByAppId = @{
 }
 $staleness = Get-AzADSPIStaleIdentity -cu $cu -SignInActivityByAppId $signInActivityByAppId -SignInDataAvailable $true -StaleIdentityDays 90 -ReferenceDate $referenceDate
 
-$mapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$IncludeUnclassifiedPermissions -AgentSponsors $agentSponsors -Staleness $staleness
+$changeState = @{
+    '10000000-0000-0000-0000-000000000001' = 'changed'
+    '60000000-0000-0000-0000-000000000002' = 'added'
+}
+$changeFields = @{ '10000000-0000-0000-0000-000000000001' = @('SPAppRoleAssignments', 'APPPasswordCredentials') }
+$removedIdentities = @([PSCustomObject]@{ objectId = '70000000-0000-0000-0000-000000000001'; objectType = 'SP APP INT'; label = 'Removed legacy connector'; appId = '70000000-0000-0000-0000-000000000002' })
+$mapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$IncludeUnclassifiedPermissions -AgentSponsors $agentSponsors -Staleness $staleness -ChangeState $changeState -ChangeFields $changeFields -RemovedStateCount 1 -RemovedIdentities $removedIdentities
 Write-Host "Built map data: $($mapData.stats.nodeCount) nodes, $($mapData.stats.edgeCount) edges ($($mapData.stats.criticalNodeCount) critical, $($mapData.stats.mediumNodeCount) medium)"
 
 #sanity checks - fail loudly on schema drift
@@ -77,6 +83,11 @@ if ($miStale.signInAvailable) { throw 'managed identity should be marked signInA
 $staleNode = $mapData.nodes | Where-Object { $_.m.stale } | Select-Object -First 1
 if (-not $staleNode) { throw 'expected at least one stale node on the map' }
 if ($mapData.stats.staleNodeCount -lt 1) { throw 'expected stats.staleNodeCount >= 1' }
+if ($mapData.stats.addedNodeCount -ne 1) { throw "expected one added node, got $($mapData.stats.addedNodeCount)" }
+if ($mapData.stats.changedNodeCount -ne 1) { throw "expected one changed node, got $($mapData.stats.changedNodeCount)" }
+if ($mapData.stats.removedNodeCount -ne 1) { throw "expected one removed node, got $($mapData.stats.removedNodeCount)" }
+$removedNode = $mapData.nodes | Where-Object { $_.m.change -eq 'removed' } | Select-Object -First 1
+if (-not $removedNode) { throw 'expected a removed ghost node in map data' }
 Write-Host "Stale identity candidates on map: $($mapData.stats.staleNodeCount)"
 Write-Host 'Sanity checks passed'
 
@@ -111,7 +122,7 @@ $html = [System.Text.StringBuilder]::new()
             <span class="mapSubtitle">Users, apps and their permissions - click a node to explore its connections</span>
             <div class="mapStats">
 '@)
-[void]$html.AppendLine("                <span class=`"mapStatChip`"><b>$($mapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($mapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($mapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($mapData.stats.mediumNodeCount)</b> medium</span><span class=`"mapStatChip`"><b>$($mapData.stats.staleNodeCount)</b> stale</span>")
+[void]$html.AppendLine("                <span class=`"mapStatChip`"><b>$($mapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($mapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($mapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($mapData.stats.mediumNodeCount)</b> medium</span><span class=`"mapStatChip`"><b>$($mapData.stats.staleNodeCount)</b> stale</span><span class=`"mapStatChip mapStatChange`"><b>$($mapData.stats.addedNodeCount + $mapData.stats.changedNodeCount + $mapData.stats.removedNodeCount)</b> changes</span>")
 [void]$html.AppendLine(@'
             </div>
         </header>

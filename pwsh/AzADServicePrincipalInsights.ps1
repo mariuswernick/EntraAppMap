@@ -37,7 +37,8 @@ Param
     [switch]$MapIncludeUnclassifiedPermissions, #also create map nodes for unclassified permissions (default: only critical/medium; unclassified are aggregated per API)
     [int]$MapAssignedToEdgeLimit = 200, #per Service Principal cap for 'principal assigned to app' map edges
     [switch]$NoStaleIdentityDetection, #skip collecting service principal sign-in activity and the stale identity analysis
-    [int]$StaleIdentityDays = 90 #an identity with no sign-in newer than this many days (and older than this) is flagged as a stale identity candidate
+    [int]$StaleIdentityDays = 90, #an identity with no sign-in newer than this many days (and older than this) is flagged as a stale identity candidate
+    [string]$PreviousStatePath #optional JSON_SP_* state directory used for explicit change comparison; defaults to the latest prior state in OutputPath
 )
 
 $Error.clear()
@@ -1706,6 +1707,8 @@ col_widths: ['5%', '5%', '5%', '5%', '5%', '5%', '5%', '5%', '5%', '5%', '5%', '
         };
         var $($tf) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
         $($tf).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = $($tf);
     </script>
 "@)
     }
@@ -1888,8 +1891,10 @@ col_widths: ['10%', '10%', '11%', '10%', '10%', '11%', '10%', '10%', '7%', '11%'
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -2071,8 +2076,10 @@ col_widths: ['10%', '10%', '11%', '10%', '10%', '11%', '10%', '10%', '7%', '11%'
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -2206,8 +2213,10 @@ col_widths: ['10%', '10%', '11%', '10%', '7%', '52%'],
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -2402,8 +2411,10 @@ btn_reset: true, highlight_keywords: true, alternate_rows: true, auto_filter: { 
             ],
             extensions: [{ name: 'colsVisibility', text: 'Columns: ', enable_tick_all: true },{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 </div>
 "@)
@@ -2621,8 +2632,10 @@ col_widths: ['8%', '8%', '8%', '8%', '8%', '8%', '8%', '8%', '3%', '33%'],
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -2777,8 +2790,10 @@ col_widths: ['10%', '10%', '10%', '10%', '10%', '50%'],
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -2932,8 +2947,10 @@ col_widths: ['10%', '10%', '10%', '10%', '10%', '50%'],
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -3142,8 +3159,10 @@ col_widths: ['8%', '8%', '8%', '8%', '8%', '8%', '8%', '4%', '40%'],
             watermark: ['', '', '', '', '', '', '', '$($summaryClassifications)', ''],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -3303,8 +3322,10 @@ col_widths: ['8%', '8%', '8%', '8%', '8%', '8%', '8%', '44%'],
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -3516,8 +3537,10 @@ col_widths: ['8%', '8%', '8%', '8%', '8%', '8%', '8%', '4%', '40%'],
             watermark: ['', '', '', '', '', '', '', '$($summaryClassifications)', ''],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
     }
@@ -3722,8 +3745,10 @@ col_widths: ['8%', '8%', '8%', '8%', '8%', '8%', '8%', '4%', '4%', '36%'],
             ],
 extensions: [{ name: 'sort' }]
         };
-        var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-        tf.init();
+        var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+        tf$($htmlTableId).init();
+        window.azadspiTableFilters = window.azadspiTableFilters || {};
+        window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
     </script>
 "@)
 
@@ -3888,8 +3913,10 @@ extensions: [{ name: 'sort' }]
                 ],
     extensions: [{ name: 'sort' }]
             };
-            var tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
-            tf.init();
+            var tf$($htmlTableId) = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
+            tf$($htmlTableId).init();
+            window.azadspiTableFilters = window.azadspiTableFilters || {};
+            window.azadspiTableFilters['$htmlTableId'] = tf$($htmlTableId);
         </script>
 "@)
 
@@ -4137,6 +4164,8 @@ extensions: [{ name: 'sort' }]
     };
     var $tf = new TableFilter('$htmlTableId', tfConfig4$htmlTableId);
     $($tf).init();
+    window.azadspiTableFilters = window.azadspiTableFilters || {};
+    window.azadspiTableFilters['$htmlTableId'] = $($tf);
 </script>
 "@)
 
@@ -8021,6 +8050,140 @@ $endEnrichmentSP = Get-Date
 $duration = New-TimeSpan -Start $startEnrichmentSP -End $endEnrichmentSP
 Write-Host "Service Principals enrichment duration: $($duration.TotalMinutes) minutes ($($duration.TotalSeconds) seconds)"
 
+function ConvertTo-AzADSPIStableStateValue {
+    param([AllowNull()]$Value)
+
+    if ($null -eq $Value) { return $null }
+    if ($Value -is [string] -or $Value.GetType().IsValueType) { return $Value }
+    if ($Value -is [System.Collections.IDictionary]) {
+        $stableDictionary = [ordered]@{}
+        foreach ($key in @($Value.Keys | Sort-Object { [string]$_ })) {
+            $stableDictionary[[string]$key] = ConvertTo-AzADSPIStableStateValue -Value $Value[$key]
+        }
+        return [PSCustomObject]$stableDictionary
+    }
+    if ($Value -is [PSCustomObject]) {
+        $stableObject = [ordered]@{}
+        foreach ($property in @($Value.PSObject.Properties | Sort-Object Name)) {
+            $stableObject[$property.Name] = ConvertTo-AzADSPIStableStateValue -Value $property.Value
+        }
+        return [PSCustomObject]$stableObject
+    }
+    if ($Value -is [System.Collections.IEnumerable]) {
+        $stableItems = @(
+            foreach ($item in $Value) {
+                $stableItem = ConvertTo-AzADSPIStableStateValue -Value $item
+                [PSCustomObject]@{
+                    SortKey = $stableItem | ConvertTo-Json -Depth 98 -Compress
+                    Value = $stableItem
+                }
+            }
+        )
+        return @($stableItems | Sort-Object SortKey | ForEach-Object Value)
+    }
+    return [string]$Value
+}
+
+$mapChangeState = @{}
+$mapChangeFields = @{}
+$removedStateCount = 0
+$removedStateIdentities = [System.Collections.ArrayList]@()
+$previousStateDirectory = $null
+if (-not $NoJsonExport) {
+    if ($PreviousStatePath) {
+        $previousStateCandidate = $PreviousStatePath
+        if (-not [IO.Path]::IsPathRooted($previousStateCandidate)) {
+            $previousStateCandidate = Join-Path -Path (Get-Location).Path -ChildPath $previousStateCandidate
+        }
+        if (-not (Test-Path -LiteralPath $previousStateCandidate -PathType Container)) {
+            throw "PreviousStatePath '$PreviousStatePath' is not a directory"
+        }
+        $previousStateDirectory = Get-Item -LiteralPath $previousStateCandidate
+    }
+    else {
+        $statePrefix = "JSON_SP_$($fileNameMGRef)"
+        $previousStateDirectory = Get-ChildItem -LiteralPath $outputPath -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "$($statePrefix)*" } |
+            Sort-Object -Property LastWriteTimeUtc -Descending |
+            Select-Object -First 1
+    }
+
+    if ($previousStateDirectory) {
+        Write-Host " Comparing with previous state '$($previousStateDirectory.FullName)'"
+        $previousStateEntryByObjectId = @{}
+        foreach ($previousStateFile in Get-ChildItem -LiteralPath $previousStateDirectory.FullName -File -Filter '*.json') {
+            try {
+                $previousEntry = Get-Content -LiteralPath $previousStateFile.FullName -Raw | ConvertFrom-Json -Depth 99
+                if ($previousEntry -is [System.Collections.IEnumerable] -and $previousEntry -isnot [PSCustomObject] -and $previousEntry -isnot [string]) {
+                    $previousEntry = @($previousEntry)[0]
+                }
+                if ($previousEntry.ObjectId) {
+                    $previousStateEntryByObjectId[[string]$previousEntry.ObjectId] = $previousEntry
+                }
+            }
+            catch {
+                Write-Host "  Skipping unreadable previous state file '$($previousStateFile.Name)'" -ForegroundColor Yellow
+            }
+        }
+
+        $currentStateObjectIds = @{}
+        foreach ($currentEntryRaw in $cu) {
+            $currentEntry = $currentEntryRaw
+            if ($currentEntry -is [System.Collections.IEnumerable] -and $currentEntry -isnot [PSCustomObject] -and $currentEntry -isnot [string]) {
+                $currentEntry = @($currentEntry)[0]
+            }
+            if (-not $currentEntry -or -not $currentEntry.ObjectId) { continue }
+            $currentObjectId = [string]$currentEntry.ObjectId
+            $currentStateObjectIds[$currentObjectId] = $true
+            if (-not $previousStateEntryByObjectId.ContainsKey($currentObjectId)) {
+                $mapChangeState[$currentObjectId] = 'added'
+                continue
+            }
+            $previousEntry = $previousStateEntryByObjectId[$currentObjectId]
+            $propertyNames = @($currentEntry.PSObject.Properties.Name + $previousEntry.PSObject.Properties.Name | Sort-Object -Unique)
+            $changedProperties = [System.Collections.ArrayList]@()
+            foreach ($propertyName in $propertyNames) {
+                $currentProperty = $currentEntry.PSObject.Properties[$propertyName]
+                $previousProperty = $previousEntry.PSObject.Properties[$propertyName]
+                $currentPropertyJson = if ($currentProperty) { ConvertTo-AzADSPIStableStateValue -Value $currentProperty.Value | ConvertTo-Json -Depth 98 -Compress } else { '<missing>' }
+                $previousPropertyJson = if ($previousProperty) { ConvertTo-AzADSPIStableStateValue -Value $previousProperty.Value | ConvertTo-Json -Depth 98 -Compress } else { '<missing>' }
+                if ($currentPropertyJson -ne $previousPropertyJson) { $null = $changedProperties.Add($propertyName) }
+            }
+            if ($changedProperties.Count -gt 0) {
+                $mapChangeState[$currentObjectId] = 'changed'
+                $mapChangeFields[$currentObjectId] = @($changedProperties)
+            }
+        }
+        foreach ($previousObjectId in $previousStateEntryByObjectId.Keys) {
+            if (-not $currentStateObjectIds.ContainsKey($previousObjectId)) {
+                $removedStateCount++
+                $removedEntry = $previousStateEntryByObjectId[$previousObjectId]
+                $removedSp = $null
+                if ($removedEntry.PSObject.Properties['SP'] -and $removedEntry.SP) { $removedSp = @($removedEntry.SP)[0] }
+                $removedApp = $null
+                if ($removedEntry.PSObject.Properties['APP'] -and $removedEntry.APP) { $removedApp = @($removedEntry.APP)[0] }
+                $removedLabel = [string]$previousObjectId
+                $removedAppId = $null
+                if ($removedSp) {
+                    if ($removedSp.SPDisplayName) { $removedLabel = [string]$removedSp.SPDisplayName }
+                    $removedAppId = $removedSp.SPAppId
+                }
+                elseif ($removedApp) {
+                    if ($removedApp.APPDisplayName) { $removedLabel = [string]$removedApp.APPDisplayName }
+                    $removedAppId = $removedApp.APPAppClientId
+                }
+                $null = $removedStateIdentities.Add([PSCustomObject]@{
+                        objectId = [string]$previousObjectId
+                        objectType = [string]$removedEntry.ObjectType
+                        label = $removedLabel
+                        appId = $removedAppId
+                    })
+            }
+        }
+        Write-Host " Change summary: $(@($mapChangeState.Values | Where-Object { $_ -eq 'added' }).Count) added, $(@($mapChangeState.Values | Where-Object { $_ -eq 'changed' }).Count) changed, $removedStateCount removed"
+    }
+}
+
 if (-not $NoJsonExport) {
     if ($azAPICallConf['htParameters'].onAzureDevOpsOrGitHubActions) {
         $JSONPath = "JSON_SP_$($fileNameMGRef)"
@@ -8104,11 +8267,11 @@ try { $azadspiMapJs = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi-map.js" 
 #region AgentIdentitySponsors
 #Entra Agent ID: collect sponsors (accountable humans) for agent identities
 $htAgentSponsors = @{}
+$agentSponsorsCollectionFailed = $false
 $cuAgents = @($cu.where({ $_.ObjectType -like 'SP Agent*' }))
 if ($cuAgents.Count -gt 0) {
     Write-Host " Found $($cuAgents.Count) Entra Agent ID objects (agent identities / blueprint principals)"
     $agentIdentityIds = @($cuAgents.where({ $_.ObjectType -eq 'SP Agent' }).ObjectId)
-    $agentSponsorsCollectionFailed = $false
     foreach ($agentObjectId in $agentIdentityIds) {
         if ($agentSponsorsCollectionFailed) { break }
         $currentTask = "getAgentIdentity Sponsors $($agentObjectId)"
@@ -8187,7 +8350,7 @@ $permissionMapData = $null
 if ($script:permissionMapAvailable -and $azadspiMapJs) {
     Write-Host ' Building Permission Map data'
     $startPermissionMap = Get-Date
-    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit -AgentSponsors $htAgentSponsors -Staleness $staleIdentityData
+    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit -AgentSponsors $htAgentSponsors -AgentSponsorsAvailable (-not $agentSponsorsCollectionFailed) -Staleness $staleIdentityData -ChangeState $mapChangeState -ChangeFields $mapChangeFields -RemovedStateCount $removedStateCount -RemovedIdentities $removedStateIdentities
     $permissionMapDataJson = ($permissionMapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'
     $endPermissionMap = Get-Date
     Write-Host " Building Permission Map data ($($permissionMapData.stats.nodeCount) nodes, $($permissionMapData.stats.edgeCount) edges) duration: $((New-TimeSpan -Start $startPermissionMap -End $endPermissionMap).TotalSeconds) seconds"
@@ -8348,7 +8511,10 @@ if ($permissionMapDataJson) {
 '@
     $mapStaleChip = ''
     if ($permissionMapData.stats.staleNodeCount -gt 0) { $mapStaleChip = "<span class=`"mapStatChip`"><b>$($permissionMapData.stats.staleNodeCount)</b> stale</span>" }
-    $html += "                <span class=`"mapStatChip`"><b>$($permissionMapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($permissionMapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($permissionMapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($permissionMapData.stats.mediumNodeCount)</b> medium</span>$($mapStaleChip)"
+    $mapChangeChip = ''
+    $mapChangeCount = $permissionMapData.stats.addedNodeCount + $permissionMapData.stats.changedNodeCount + $permissionMapData.stats.removedNodeCount
+    if ($mapChangeCount -gt 0) { $mapChangeChip = "<span class=`"mapStatChip mapStatChange`"><b>$($mapChangeCount)</b> changes</span>" }
+    $html += "                <span class=`"mapStatChip`"><b>$($permissionMapData.stats.nodeCount)</b> nodes</span><span class=`"mapStatChip`"><b>$($permissionMapData.stats.edgeCount)</b> connections</span><span class=`"mapStatChip`"><span class=`"dotCritical`"></span><b>$($permissionMapData.stats.criticalNodeCount)</b> critical</span><span class=`"mapStatChip`"><span class=`"dotMedium`"></span><b>$($permissionMapData.stats.mediumNodeCount)</b> medium</span>$($mapStaleChip)$($mapChangeChip)"
     $html += @'
 
             </div>
@@ -8407,6 +8573,9 @@ if ($cuAgents.Count -gt 0) {
             if ($htAgentSponsors.($agentEntry.ObjectId)) {
                 $agentSponsorNames = foreach ($agentSponsorEntry in $htAgentSponsors.($agentEntry.ObjectId)) { ([string]$agentSponsorEntry.displayName).Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;') }
                 $agentSponsorsCell = $agentSponsorNames -join ', '
+            }
+            elseif ($agentSponsorsCollectionFailed) {
+                $agentSponsorsCell = '<span style="color:var(--ink-3);font-weight:600">unknown (permission unavailable)</span>'
             }
             else {
                 $agentSponsorsCell = '<span style="color:var(--risk-critical);font-weight:600">none</span>'

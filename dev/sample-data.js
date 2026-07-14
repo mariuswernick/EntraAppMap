@@ -115,7 +115,7 @@
         return id;
     }
 
-    var hrSync = app(1, 'HR Sync Service', 'app', 'SP APP INT', { secretCount: 2, certCount: 1 });
+    var hrSync = app(1, 'HR Sync Service', 'app', 'SP APP INT', { secretCount: 2, certCount: 1, change: 'changed' });
     var finPipe = app(2, 'Finance Data Pipeline', 'app', 'SP APP INT', { secretCount: 1 });
     var devops = app(3, 'DevOps Automation', 'app', 'SP APP INT', { federatedCredentialCount: 2 });
     var crm = app(4, 'Legacy CRM Connector', 'app', 'SP APP INT', { secretCount: 4 });
@@ -130,7 +130,7 @@
     var miAks = app(13, 'mi-aks-prod-westeu', 'mi', 'SP MI System assigned', { miResourceType: 'ContainerService/managedClusters', azureRoleCount: 3 });
     var miFunc = app(14, 'mi-funcapp-billing', 'mi', 'SP MI System assigned', { miResourceType: 'Web/sites', azureRoleCount: 2 });
     var miLogic = app(15, 'mi-logicapp-hr', 'mi', 'SP MI User assigned', { miResourceType: 'ManagedIdentity/userAssignedIdentities', azureRoleCount: 1 });
-    var appOnly = app(16, 'Orphaned App Registration', 'app', 'APP AppOnly', { secretCount: 1 });
+    var appOnly = app(16, 'Orphaned App Registration', 'app', 'APP AppOnly', { secretCount: 1, change: 'added' });
 
     /* Entra Agent ID: blueprint principal + agent identities */
     var agentBp = app(17, 'Copilot Studio Agent Blueprint', 'agentBp', 'SP Agent Blueprint', {});
@@ -273,6 +273,9 @@
             criticalNodeCount: critical,
             mediumNodeCount: medium,
             staleNodeCount: stale,
+            addedNodeCount: 1,
+            changedNodeCount: 1,
+            removedNodeCount: 1,
             includesUnclassifiedPermissionNodes: false
         }
     };

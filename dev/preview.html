@@ -170,7 +170,8 @@
             '<span class="mapStatChip"><b>' + stats.edgeCount + '</b> connections</span>' +
             '<span class="mapStatChip"><span class="dotCritical"></span><b>' + stats.criticalNodeCount + '</b> critical</span>' +
             '<span class="mapStatChip"><span class="dotMedium"></span><b>' + stats.mediumNodeCount + '</b> medium</span>' +
-            (stats.staleNodeCount ? '<span class="mapStatChip"><b>' + stats.staleNodeCount + '</b> stale</span>' : '');
+            (stats.staleNodeCount ? '<span class="mapStatChip"><b>' + stats.staleNodeCount + '</b> stale</span>' : '') +
+            ((stats.addedNodeCount || stats.changedNodeCount || stats.removedNodeCount) ? '<span class="mapStatChip mapStatChange"><b>' + ((stats.addedNodeCount || 0) + (stats.changedNodeCount || 0) + (stats.removedNodeCount || 0)) + '</b> changes</span>' : '');
     </script>
     <script src="../pwsh/assets/azadspi-report.js"></script>
     <script src="../pwsh/assets/azadspi-map.js"></script>
