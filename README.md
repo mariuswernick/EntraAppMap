@@ -1,8 +1,10 @@
-__AzADServicePrincipalInsights aka AzADSPI__
+__EntraAppMap__
+
+> **Note:** This tool is a fork of [AzADServicePrincipalInsights (aka AzADSPI)](https://github.com/JulianHayward/AzADServicePrincipalInsights) by [Julian Hayward](https://github.com/JulianHayward). It builds on AzADSPI's data collection and reporting foundation and adds an interactive Permission Map and a redesigned report. All credit for the original tool goes to Julian Hayward.
 
 Insights and change tracking on Microsoft Entra ID Service Principals (Enterprise Applications, Applications / Managed Identities)
 
-aka links:
+Original project aka links:
 * aka.ms/AzADSPI  
 * aka.ms/AzADServicePrincipalInsights
 
