@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="en" style="height: 100%">
+<head>
+    <meta charset="utf-8" />
+    <title>AzADServicePrincipalInsights - design preview</title>
+    <script>
+        (function () { try { var t = localStorage.getItem('azadspiTheme'); if (t === 'dark' || t === 'light') { document.documentElement.setAttribute('data-theme', t); } } catch (e) { } })();
+    </script>
+    <link rel="stylesheet" type="text/css" href="../pwsh/assets/azadspi.css" />
+</head>
+<body>
+    <div class="se-pre-con"></div>
+
+    <div class="summprnt" id="summprnt">
+    <div class="summary" id="summary"><p class="pbordered">Microsoft Entra ID Service Principal Insights (preview / sample data)</p>
+
+    <!-- ============ Permission Map (markup mirrors AzADServicePrincipalInsights.ps1 #region PermissionMapSection) ============ -->
+    <section id="identityMap" class="mapSection">
+        <header class="mapHeader">
+            <h2>Permission Map</h2>
+            <span class="mapSubtitle">Users, apps and their permissions - click a node to explore its connections</span>
+            <div class="mapStats" id="mapStatsChips"></div>
+        </header>
+        <div class="mapToolbar">
+            <div class="mapSearchWrap">
+                <input id="mapSearch" type="search" placeholder="Search users, apps, permissions…" autocomplete="off" />
+                <div class="mapSearchResults" id="mapSearchResults"></div>
+            </div>
+            <div class="mapFilters" id="mapFilters"></div>
+            <div class="mapButtons">
+                <button type="button" class="mapBtn" id="mapBtnZoomIn" title="Zoom in">+</button>
+                <button type="button" class="mapBtn" id="mapBtnZoomOut" title="Zoom out">&#8722;</button>
+                <button type="button" class="mapBtn" id="mapBtnFit" title="Fit to view">Fit</button>
+                <button type="button" class="mapBtn" id="mapBtnLayout" title="Re-run layout">Layout</button>
+                <button type="button" class="mapBtn" id="mapBtnFullscreen" title="Fullscreen">&#x26F6;</button>
+            </div>
+        </div>
+        <div class="mapStage">
+            <canvas id="mapCanvas"></canvas>
+            <div class="mapLegend" id="mapLegend"></div>
+            <div class="mapTooltip"></div>
+            <aside class="mapDetails" id="mapDetails"></aside>
+        </div>
+    </section>
+    <script id="azadspiMapData" type="application/json"></script>
+
+    <!-- ============ representative report sections (markup snapshot from summary()) ============ -->
+    <button type="button" class="collapsible" id="tenantSummaryPolicy"><hr class="hr-textServicePrincipal" data-content="&nbsp;Service Principals" /></button>
+    <div class="content TenantSummaryContent">
+        <div class="noFloat">
+            <button type="button" class="decollapsible">Charts</button>
+            <div class="showContent chart-container">
+                <div class="chartDiv">
+                    <span>AppOwner OrgIds count: <b>3</b></span>
+                    <canvas id="myChart" style="height:150px; width: 250px"></canvas>
+                </div>
+                <div class="chartDiv">
+                    <span>Service Principal types count: <b>5</b></span>
+                    <canvas id="myChart2" style="height:150px; width: 250px"></canvas>
+                </div>
+            </div>
+        </div>
+        <i class="padlx fa fa-table" aria-hidden="true"></i> Download CSV <a class="externallink" href="#" onclick="return false">semicolon</a> | <a class="externallink" href="#" onclick="return false">comma</a>
+        <table id="TenantSummary_ServicePrincipals" class="summaryTable">
+            <thead>
+                <tr>
+                    <th>SP object Id</th>
+                    <th>SP application Id</th>
+                    <th>SP displayName</th>
+                    <th>SP type</th>
+                    <th>App signIn audience</th>
+                    <th>Classification</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr class="odd">
+                    <td class="breakwordall">00000201-1111-2222-3333-000000000201</td>
+                    <td class="breakwordall">000002bd-1111-2222-3333-0000000002bd</td>
+                    <td>HR Sync Service</td>
+                    <td>SP APP INT</td>
+                    <td>AzureADMyOrg</td>
+                    <td><span style="color:var(--risk-critical);font-weight:600">critical</span></td>
+                </tr>
+                <tr class="even">
+                    <td class="breakwordall">00000202-1111-2222-3333-000000000202</td>
+                    <td class="breakwordall">000002be-1111-2222-3333-0000000002be</td>
+                    <td>Finance Data Pipeline</td>
+                    <td>SP APP INT</td>
+                    <td>AzureADMyOrg</td>
+                    <td><span style="color:var(--risk-medium);font-weight:600">medium</span></td>
+                </tr>
+                <tr class="odd">
+                    <td class="breakwordall">00000209-1111-2222-3333-000000000209</td>
+                    <td class="breakwordall">000002c5-1111-2222-3333-0000000002c5</td>
+                    <td>Contoso Partner Portal</td>
+                    <td>SP APP EXT</td>
+                    <td>AzureADMultipleOrgs</td>
+                    <td></td>
+                </tr>
+                <tr class="even uamiresaltbgc">
+                    <td class="breakwordall">0000020f-1111-2222-3333-00000000020f</td>
+                    <td class="breakwordall">000002cb-1111-2222-3333-0000000002cb</td>
+                    <td>mi-logicapp-hr</td>
+                    <td>SP MI User assigned</td>
+                    <td></td>
+                    <td><span style="color:var(--risk-critical);font-weight:600">critical</span></td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <button type="button" class="collapsible"><hr class="hr-textAPIPermissions" data-content="&nbsp;App Role Assignments (API permissions Application)" /></button>
+    <div class="content TenantSummaryContent">
+        <i class="padlxx fa fa-table" aria-hidden="true"></i> example content area
+        <p><i class="padlx fa fa-ban" aria-hidden="true"></i> <span class="valignMiddle">17 Service Principals</span></p>
+    </div>
+
+    <button type="button" class="collapsible"><hr class="hr-textAADRoleAssignment" data-content="&nbsp;Entra ID Role Assignments" /></button>
+    <div class="content TenantSummaryContent"><p>example content</p></div>
+
+    <button type="button" class="nonCollapsible"><hr class="hr-textGroup fontGrey" data-content="&nbsp;Group memberships (empty)" /></button>
+
+    <button type="button" class="collapsible"><hr class="hr-textSecretCert" data-content="&nbsp;Secrets &amp; Certificates" /></button>
+    <div class="content TenantSummaryContent"><p><i class="fa fa-exclamation-triangle" aria-hidden="true"></i> 3 secrets expire within 14 days</p></div>
+
+    </div><!--summary-->
+    </div><!--summprnt-->
+
+    <div class="footer">
+        <div class="VersionDiv VersionLatest"></div>
+        <div class="VersionDiv VersionThis"></div>
+        <div class="VersionAlert"></div>
+        <abbr style="text-decoration:none" title="sample parameters"><i class="fa fa-question-circle" aria-hidden="true"></i></abbr> design preview - sample data only
+        <hr>
+    </div>
+
+    <script src="sample-data.js"></script>
+    <script>
+        /* inject sample data into the same data element the real report uses */
+        document.getElementById('azadspiMapData').textContent = JSON.stringify(window.AZADSPI_SAMPLE_DATA);
+        var stats = window.AZADSPI_SAMPLE_DATA.stats;
+        document.getElementById('mapStatsChips').innerHTML =
+            '<span class="mapStatChip"><b>' + stats.nodeCount + '</b> nodes</span>' +
+            '<span class="mapStatChip"><b>' + stats.edgeCount + '</b> connections</span>' +
+            '<span class="mapStatChip"><span class="dotCritical"></span><b>' + stats.criticalNodeCount + '</b> critical</span>' +
+            '<span class="mapStatChip"><span class="dotMedium"></span><b>' + stats.mediumNodeCount + '</b> medium</span>';
+    </script>
+    <script src="../pwsh/assets/azadspi-report.js"></script>
+    <script src="../pwsh/assets/azadspi-map.js"></script>
+</body>
+</html>

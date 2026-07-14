@@ -28,6 +28,18 @@ aka links:
 
 # Features
 
+* Interactive Permission Map (embedded at the top of the HTML report)
+  * Force-directed, zoomable map of users, apps / Service Principals, Managed Identities, groups, permissions and Entra ID directory roles - pan, zoom, drag, click a node to explore its connections in a details panel
+  * Permissions are colored by classification (critical / medium, driven by permissionClassification.json); risky identities get a colored risk ring
+  * Search, node type and risk filters, legend, fullscreen mode
+  * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
+  * Related parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
+
+  ![PermissionMap light](img/permissionmap_light.png)
+  ![PermissionMap dark](img/permissionmap_dark.png)
+* Modern report design
+  * Self-contained stylesheet (no external CSS dependency), light and dark theme with toggle (persisted) and OS preference detection
+  * For offline design iteration see [dev/README.md](dev/README.md)
 * HTML export
 * JSON export
   * Ingest data from the JSON files to an Azure Log Analytics workspace custom table using data collection rule / data collection endpoint. [Microsoft Entra Workload ID - Advanced Detections and Enrichment in Microsoft Sentinel](https://www.cloud-architekt.net/entra-workload-id-advanced-detection-enrichment/)
@@ -74,6 +86,9 @@ aka links:
 * `DirectorySeparatorChar` - Set the character for directory seperation (default : [IO.Path]::DirectorySeparatorChar)
 * `OnlyProcessSPsThatHaveARoleAssignmentInTheRelevantMGScopes` - Switch to only report on Service Principals that have a role assigment within the scope of the data  collection contaxt
 * `CriticalAADRoles` - Microsoft Entra ID roles that should be considered as highly privileged/critical (default :@('62e90394-69f5-4237-9190-012177145e10', 'e8611ab8-c189-46e8-94e1-60213ab1f814', '7be44c8a-adaf-4e2a-84d6-ab2649e08a13') which are Global Administrator, Privileged Role Administrator, Privileged Authentication Administrator)
+* `NoPermissionMap` - Switch to skip building the interactive Permission Map in the HTML report
+* `MapIncludeUnclassifiedPermissions` - Switch to also create Permission Map nodes for unclassified permissions (default: only critical/medium permissions become dedicated nodes; unclassified permissions are aggregated into a single 'uses API' connection per Service Principal/API pair to keep the map readable)
+* `MapAssignedToEdgeLimit` - Per Service Principal cap for 'principal assigned to app' connections on the Permission Map; the real count is always shown in the details panel (default : 200)
 
 # Data
 

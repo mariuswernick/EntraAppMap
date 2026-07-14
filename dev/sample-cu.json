@@ -1,0 +1,238 @@
+[
+    {
+        "ObjectType": "SP APP INT",
+        "ObjectId": "10000000-0000-0000-0000-000000000001",
+        "SP": [
+            {
+                "SPObjectId": "10000000-0000-0000-0000-000000000001",
+                "SPAppId": "20000000-0000-0000-0000-000000000001",
+                "SPDisplayName": "HR Sync Service",
+                "SPAppOwnerOrganizationId": "30000000-0000-0000-0000-000000000001",
+                "SPServicePrincipalType": "Application",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2023-04-11T08:30:00Z"
+            }
+        ],
+        "SPOwners": [
+            {
+                "id": "40000000-0000-0000-0000-000000000001",
+                "displayName": "Ava Meyer",
+                "principalType": "User (Member)",
+                "applicability": "direct"
+            }
+        ],
+        "SPAADRoleAssignments": [
+            {
+                "id": "ra-001",
+                "roleDefinitionId": "9b895d92-2cd3-44c7-9d02-a6ac2d5ea5c3",
+                "roleDefinitionName": "Application Administrator",
+                "roleDefinitionDescription": "Can create and manage all aspects of app registrations and enterprise apps.",
+                "roleType": "BuiltIn",
+                "roleIsCritical": false
+            }
+        ],
+        "SPAppRoleAssignments": [
+            {
+                "AppRoleAssignmentId": "ara-001",
+                "AppRoleAssignmentResourceId": "90000000-0000-0000-0000-000000000001",
+                "AppRoleAssignmentResourceDisplayName": "Microsoft Graph",
+                "AppRoleId": "741f803b-c850-494e-b5df-cde7c675a1ca",
+                "AppRolePermission": "Directory.ReadWrite.All",
+                "AppRolePermissionSensitivity": "critical",
+                "AppRoleDisplayName": "Read and write directory data",
+                "AppRoleDescription": "Allows the app to read and write data in your organization's directory."
+            },
+            {
+                "AppRoleAssignmentId": "ara-002",
+                "AppRoleAssignmentResourceId": "90000000-0000-0000-0000-000000000001",
+                "AppRoleAssignmentResourceDisplayName": "Microsoft Graph",
+                "AppRoleId": "62a82d76-70ea-41e2-9197-370581804d09",
+                "AppRolePermission": "Group.ReadWrite.All",
+                "AppRolePermissionSensitivity": "medium",
+                "AppRoleDisplayName": "Read and write all groups",
+                "AppRoleDescription": "Allows the app to create groups and read all group properties and memberships."
+            },
+            {
+                "AppRoleAssignmentId": "ara-003",
+                "AppRoleAssignmentResourceId": "90000000-0000-0000-0000-000000000001",
+                "AppRoleAssignmentResourceDisplayName": "Microsoft Graph",
+                "AppRoleId": "df021288-bdef-4463-88db-98f22de89214",
+                "AppRolePermission": "User.Read.All",
+                "AppRolePermissionSensitivity": "unclassified",
+                "AppRoleDisplayName": "Read all users' full profiles",
+                "AppRoleDescription": "Allows the app to read the full set of profile properties."
+            }
+        ],
+        "SPAppRoleAssignedTo": [
+            {
+                "principalDisplayName": "SG-HR-App-Users",
+                "principalId": "50000000-0000-0000-0000-000000000001",
+                "principalType": "Group",
+                "roleValue": "HRData.Sync",
+                "roleDisplayName": "HR data sync"
+            },
+            {
+                "principalDisplayName": "Ben Schmidt",
+                "principalId": "40000000-0000-0000-0000-000000000002",
+                "principalType": "User Member",
+                "roleValue": "HRData.Read",
+                "roleDisplayName": "HR data read"
+            }
+        ],
+        "SPGroupMemberships": [
+            {
+                "DisplayName": "SG-IT-Automation",
+                "ObjectId": "50000000-0000-0000-0000-000000000002"
+            }
+        ],
+        "APP": [
+            {
+                "APPObjectId": "60000000-0000-0000-0000-000000000001",
+                "APPAppClientId": "20000000-0000-0000-0000-000000000001",
+                "APPDisplayName": "HR Sync Service",
+                "APPSignInAudience": "AzureADMyOrg",
+                "APPCreatedDateTime": "2023-04-11T08:29:00Z"
+            }
+        ],
+        "APPAppOwners": [
+            {
+                "id": "40000000-0000-0000-0000-000000000001",
+                "displayName": "Ava Meyer",
+                "principalType": "User (Member)",
+                "applicability": "direct"
+            }
+        ],
+        "APPPasswordCredentials": [
+            { "keyId": "k-001", "displayName": "sync-secret", "expiryInfo": "expires in 40 days" },
+            { "keyId": "k-002", "displayName": "old-secret", "expiryInfo": "expired" }
+        ]
+    },
+    {
+        "ObjectType": "SP APP EXT",
+        "ObjectId": "10000000-0000-0000-0000-000000000002",
+        "SP": [
+            {
+                "SPObjectId": "10000000-0000-0000-0000-000000000002",
+                "SPAppId": "20000000-0000-0000-0000-000000000002",
+                "SPDisplayName": "Adobe Acrobat Sign",
+                "SPAppOwnerOrganizationId": "99000000-0000-0000-0000-000000000099",
+                "SPServicePrincipalType": "Application",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2022-10-02T10:00:00Z"
+            }
+        ],
+        "SPOauth2PermissionGrants": [
+            {
+                "SPId": "90000000-0000-0000-0000-000000000001",
+                "SPAppId": "00000003-0000-0000-c000-000000000000",
+                "SPDisplayName": "Microsoft Graph",
+                "scope": "Mail.Send",
+                "permission": "Mail.Send",
+                "permissionSensitivity": "critical",
+                "type": "Admin",
+                "adminConsentDisplayName": "Send mail as the signed-in user",
+                "adminConsentDescription": "Allows the app to send mail as the signed-in user."
+            },
+            {
+                "SPId": "90000000-0000-0000-0000-000000000001",
+                "SPAppId": "00000003-0000-0000-c000-000000000000",
+                "SPDisplayName": "Microsoft Graph",
+                "scope": "User.Read",
+                "permission": "User.Read",
+                "permissionSensitivity": "unclassified",
+                "type": "User",
+                "adminConsentDisplayName": "Sign in and read user profile",
+                "adminConsentDescription": "Allows users to sign in to the app."
+            }
+        ],
+        "SPAppRoleAssignedTo": [
+            {
+                "principalDisplayName": "Klara Kowalski (guest)",
+                "principalId": "40000000-0000-0000-0000-000000000003",
+                "principalType": "User Guest",
+                "roleValue": "Sign.Access",
+                "roleDisplayName": "Sign access"
+            }
+        ]
+    },
+    {
+        "ObjectType": "SP MI System assigned",
+        "ObjectId": "10000000-0000-0000-0000-000000000003",
+        "SP": [
+            {
+                "SPObjectId": "10000000-0000-0000-0000-000000000003",
+                "SPAppId": "20000000-0000-0000-0000-000000000003",
+                "SPDisplayName": "mi-funcapp-billing",
+                "SPAppOwnerOrganizationId": "30000000-0000-0000-0000-000000000001",
+                "SPServicePrincipalType": "ManagedIdentity",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2024-01-20T12:00:00Z"
+            }
+        ],
+        "SPAppRoleAssignments": [
+            {
+                "AppRoleAssignmentId": "ara-010",
+                "AppRoleAssignmentResourceId": "90000000-0000-0000-0000-000000000001",
+                "AppRoleAssignmentResourceDisplayName": "Microsoft Graph",
+                "AppRoleId": "7ab1d382-f21e-4acd-a863-ba3e13f7da61",
+                "AppRolePermission": "Directory.Read.All",
+                "AppRolePermissionSensitivity": "medium",
+                "AppRoleDisplayName": "Read directory data",
+                "AppRoleDescription": "Allows the app to read data in your organization's directory."
+            }
+        ],
+        "SPAzureRoleAssignments": [
+            {
+                "roleId": "b24988ac-6180-42a0-ab88-20f7382dd24c",
+                "roleName": "Contributor",
+                "roleIsCritical": false,
+                "roleAssignmentAssignmentScopeName": "sub-billing"
+            }
+        ],
+        "ManagedIdentity": [
+            {
+                "resourceType": "Microsoft.Web/sites",
+                "resourceScope": "/subscriptions/00000000-0000-0000-0000-000000000000/resourceGroups/rg-billing/providers/Microsoft.Web/sites/funcapp-billing"
+            }
+        ]
+    },
+    {
+        "ObjectType": "SP EXT",
+        "ObjectId": "90000000-0000-0000-0000-000000000001",
+        "SP": [
+            {
+                "SPObjectId": "90000000-0000-0000-0000-000000000001",
+                "SPAppId": "00000003-0000-0000-c000-000000000000",
+                "SPDisplayName": "Microsoft Graph",
+                "SPAppOwnerOrganizationId": "f8cdef31-a31e-4b4a-93e4-5f571e91255a",
+                "SPServicePrincipalType": "Application",
+                "SPAccountEnabled": true,
+                "SPCreatedDateTime": "2020-01-01T00:00:00Z"
+            }
+        ]
+    },
+    {
+        "ObjectType": "APP AppOnly",
+        "ObjectId": "60000000-0000-0000-0000-000000000002",
+        "APP": [
+            {
+                "APPObjectId": "60000000-0000-0000-0000-000000000002",
+                "APPAppClientId": "20000000-0000-0000-0000-000000000004",
+                "APPDisplayName": "Orphaned App Registration",
+                "APPSignInAudience": "AzureADMyOrg",
+                "APPCreatedDateTime": "2021-06-30T15:45:00Z"
+            }
+        ],
+        "APPAppOwners": [
+            {
+                "id": "40000000-0000-0000-0000-000000000002",
+                "displayName": "Ben Schmidt",
+                "principalType": "User (Member)",
+                "applicability": "direct"
+            }
+        ],
+        "APPPasswordCredentials": [
+            { "keyId": "k-010", "displayName": "forgotten-secret", "expiryInfo": "expired" }
+        ]
+    }
+]
