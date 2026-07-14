@@ -132,6 +132,16 @@
     var miLogic = app(15, 'mi-logicapp-hr', 'mi', 'SP MI User assigned', { miResourceType: 'ManagedIdentity/userAssignedIdentities', azureRoleCount: 1 });
     var appOnly = app(16, 'Orphaned App Registration', 'app', 'APP AppOnly', { secretCount: 1 });
 
+    /* Entra Agent ID: blueprint principal + agent identities */
+    var agentBp = app(17, 'Copilot Studio Agent Blueprint', 'agentBp', 'SP Agent Blueprint', {});
+    var agentBpAppId = guid(717);
+    var agentHr = app(18, 'agent-hr-assistant', 'agent', 'SP Agent', { blueprintId: agentBpAppId });
+    var agentSales = app(19, 'agent-sales-briefing', 'agent', 'SP Agent', { blueprintId: agentBpAppId });
+    nodes.forEach(function (n) {
+        if (n.id === agentHr) { n.m.sponsors = [{ name: 'Grace Berger', type: 'user' }]; }
+        if (n.id === agentSales) { n.m.noSponsor = true; }
+    });
+
     /* risk rollup mirrors the builder: node.r = max of its permissions/roles */
     function setRisk(id, r) {
         for (var i = 0; i < nodes.length; i++) { if (nodes[i].id === id) { nodes[i].r = r; return; } }
@@ -192,6 +202,15 @@
     addEdge(miFunc, RES.arm, 'usesApi');
     addEdge(miLogic, P.mailSend, 'permApp', null, 'critical');
     setRisk(miLogic, 'critical');
+
+    /* agent identities: blueprint instancing, sponsors, permissions */
+    addEdge(agentHr, agentBp, 'instanceOf');
+    addEdge(agentSales, agentBp, 'instanceOf');
+    addEdge(agentHr, P.filesRWAll, 'permApp', null, 'medium');
+    setRisk(agentHr, 'medium');
+    addEdge(agentSales, P.mailSend, 'permApp', null, 'critical');
+    setRisk(agentSales, 'critical'); /* critical permission AND no sponsor */
+    addEdge(users[6], agentHr, 'sponsors');
 
     /* permission -> resource API */
     Object.keys(P).forEach(function (k) {

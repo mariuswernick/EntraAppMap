@@ -32,7 +32,8 @@
     --map-appext: #4a3aa7;
     --map-mi: #1baf7a;
     --map-user: #008300;
-    --map-guest: #e87ba4;
+    --map-guest: #008300;
+    --map-agent: #e87ba4;
     --map-group: #eda100;
     --map-resource: #898781;
     --map-role: #eb6834;
@@ -51,7 +52,8 @@
     --cat-group: #eda100;
     --cat-hipo: #eb6834;
     --cat-mi: #1baf7a;
-    --cat-secret: #e87ba4;
+    --cat-agent: #e87ba4;
+    --cat-secret: #d55181;
 
     --radius-s: 6px;
     --radius-m: 10px;
@@ -84,7 +86,8 @@
         --map-appext: #9085e9;
         --map-mi: #199e70;
         --map-user: #008300;
-        --map-guest: #d55181;
+        --map-guest: #008300;
+        --map-agent: #d55181;
         --map-group: #c98500;
         --map-resource: #898781;
         --map-role: #d95926;
@@ -102,6 +105,7 @@
         --cat-group: #c98500;
         --cat-hipo: #d95926;
         --cat-mi: #199e70;
+        --cat-agent: #d55181;
         --cat-secret: #d55181;
     }
 }
@@ -129,7 +133,8 @@
     --map-appext: #9085e9;
     --map-mi: #199e70;
     --map-user: #008300;
-    --map-guest: #d55181;
+    --map-guest: #008300;
+    --map-agent: #d55181;
     --map-group: #c98500;
     --map-resource: #898781;
     --map-role: #d95926;
@@ -147,6 +152,7 @@
     --cat-group: #c98500;
     --cat-hipo: #d95926;
     --cat-mi: #199e70;
+    --cat-agent: #d55181;
     --cat-secret: #d55181;
 }
 
@@ -349,6 +355,7 @@ button.collapsible.active::after { transform: rotate(225deg); top: -28px; }
 .hr-textGroup { --section-accent: var(--cat-group); }
 .hr-textHiPoUsers { --section-accent: var(--cat-hipo); }
 .hr-textManagedIdentity { --section-accent: var(--cat-mi); }
+.hr-textAgent { --section-accent: var(--cat-agent); }
 .hr-textSecretCert { --section-accent: var(--cat-secret); }
 
 /* muted (empty) sections */
@@ -737,6 +744,7 @@ input.reset, .btn, input[type="button"].flt {
 .mapLegend .legendSwatch.dot { border-radius: 50%; transform: scale(0.7); }
 .mapLegend .legendSwatch.ring { border-radius: 50%; background: transparent; border: 2.5px solid var(--sw, var(--ink-3)); }
 .mapLegend .legendSwatch.star { clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.mapLegend .legendSwatch.triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
 
 .mapTooltip {
     position: absolute;

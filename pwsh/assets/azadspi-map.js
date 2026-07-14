@@ -12,8 +12,10 @@
         app: { label: 'App / Service Principal', colorVar: '--map-app', shape: 'square', baseRadius: 9 },
         appExt: { label: 'External / multi-tenant SP', colorVar: '--map-appext', shape: 'square', baseRadius: 9 },
         mi: { label: 'Managed identity', colorVar: '--map-mi', shape: 'diamond', baseRadius: 8 },
+        agent: { label: 'Agent identity', colorVar: '--map-agent', shape: 'triangle', baseRadius: 8 },
+        agentBp: { label: 'Agent blueprint', colorVar: '--map-agent', shape: 'triangleOutline', baseRadius: 9 },
         user: { label: 'User', colorVar: '--map-user', shape: 'circle', baseRadius: 6 },
-        guest: { label: 'Guest user', colorVar: '--map-guest', shape: 'circle', baseRadius: 6 },
+        guest: { label: 'Guest user', colorVar: '--map-guest', shape: 'circleOutline', baseRadius: 6 },
         group: { label: 'Group', colorVar: '--map-group', shape: 'hex', baseRadius: 7 },
         resource: { label: 'Resource API', colorVar: '--map-resource', shape: 'squareOutline', baseRadius: 10 },
         permApp: { label: 'Application permission', colorVar: '--map-perm-none', shape: 'dot', baseRadius: 4.5 },
@@ -24,6 +26,7 @@
     var FILTER_GROUPS = [
         { key: 'apps', label: 'Apps', types: ['app', 'appExt'], colorVar: '--map-app', shape: 'square' },
         { key: 'mi', label: 'Managed identities', types: ['mi'], colorVar: '--map-mi', shape: 'square' },
+        { key: 'agents', label: 'Agents', types: ['agent', 'agentBp'], colorVar: '--map-agent', shape: 'square' },
         { key: 'users', label: 'Users', types: ['user', 'guest'], colorVar: '--map-user', shape: 'circle' },
         { key: 'groups', label: 'Groups', types: ['group'], colorVar: '--map-group', shape: 'square' },
         { key: 'resources', label: 'Resource APIs', types: ['resource'], colorVar: '--map-resource', shape: 'square' },
@@ -45,12 +48,14 @@
         usesApi: 'uses API (unclassified permissions)',
         assignedTo: 'assigned to app',
         memberOf: 'member of',
-        aadRole: 'directory role'
+        aadRole: 'directory role',
+        sponsors: 'sponsor of',
+        instanceOf: 'instance of blueprint'
     };
 
     var LINK_DISTANCE = {
         owns: 62, permApp: 48, permDel: 48, onApi: 55, usesApi: 95,
-        assignedTo: 72, memberOf: 70, aadRole: 60
+        assignedTo: 72, memberOf: 70, aadRole: 60, sponsors: 62, instanceOf: 55
     };
 
     var META_LABELS = {
@@ -61,7 +66,8 @@
         spOwnerCount: 'SP owners', appOwnerCount: 'App owners', principalType: 'Principal type',
         miResourceType: 'MI resource type', miResourceScope: 'MI resource scope',
         resource: 'Resource API', displayName: 'Display name', description: 'Description',
-        classification: 'Classification', roleType: 'Role type', roleDefinitionId: 'Role definition ID'
+        classification: 'Classification', roleType: 'Role type', roleDefinitionId: 'Role definition ID',
+        blueprintId: 'Blueprint (app) ID'
     };
 
     /* ------------------------------------------------------------------ */
@@ -155,7 +161,7 @@
 
         /* cluster-seeded initial positions: each type starts in its own zone */
         var clusterAngle = {
-            app: -2.2, appExt: -1.2, mi: -2.9, resource: 0, permApp: -0.5, permDel: 0.5,
+            app: -2.2, appExt: -1.2, mi: -2.9, agent: -1.7, agentBp: -1.9, resource: 0, permApp: -0.5, permDel: 0.5,
             user: 2.4, guest: 2.0, group: 1.5, role: 3.0
         };
         var spread = Math.max(240, Math.sqrt(nodes.length) * 26);
@@ -448,6 +454,21 @@
                 ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
                 ctx.fill();
                 break;
+            case 'circleOutline':
+                ctx.beginPath();
+                ctx.arc(node.x, node.y, Math.max(2.5, r - 1), 0, Math.PI * 2);
+                ctx.lineWidth = 2.2;
+                ctx.stroke();
+                break;
+            case 'triangle':
+                polygonPath(node.x, node.y, r * 1.25, 3, -Math.PI / 2);
+                ctx.fill();
+                break;
+            case 'triangleOutline':
+                polygonPath(node.x, node.y, r * 1.25, 3, -Math.PI / 2);
+                ctx.lineWidth = 2.2;
+                ctx.stroke();
+                break;
             case 'dot':
                 ctx.beginPath();
                 ctx.arc(node.x, node.y, r, 0, Math.PI * 2);
@@ -630,7 +651,7 @@
         Object.keys(m).forEach(function (key) {
             var val = m[key];
             if (val === null || val === undefined || val === '') { return; }
-            if (key === 'aadRoles') { return; }
+            if (key === 'aadRoles' || key === 'sponsors' || key === 'noSponsor') { return; }
             if (key === 'appPermissions' || key === 'delegatedPermissions') {
                 var total = (val.critical || 0) + (val.medium || 0) + (val.unclassified || 0);
                 if (!total) { return; }
@@ -647,6 +668,19 @@
             rows += '<dt>' + escapeHtml(label) + '</dt><dd' + (plain && !/Id$/i.test(key) ? ' class="plain"' : '') + '>' + escapeHtml(String(val)) + '</dd>';
         });
         if (rows) { html += '<h4>Details</h4><dl class="detailProps">' + rows + '</dl>'; }
+
+        if (node.t === 'agent') {
+            html += '<h4>Sponsors</h4><div class="neighborList">';
+            if (m.sponsors && m.sponsors.length) {
+                m.sponsors.forEach(function (sponsor) {
+                    html += '<div style="padding:3px 8px;font-size:12.5px">' + escapeHtml(sponsor.name) + (sponsor.type ? ' <span style="color:var(--ink-3);font-size:10.5px">(' + escapeHtml(sponsor.type) + ')</span>' : '') + '</div>';
+                });
+            }
+            else {
+                html += '<div style="padding:3px 8px;font-size:12.5px"><span class="riskBadge medium">no sponsor assigned</span></div>';
+            }
+            html += '</div>';
+        }
 
         if (m.aadRoles && m.aadRoles.length) {
             html += '<h4>Entra directory roles</h4><div class="neighborList">';
@@ -821,7 +855,7 @@
     function initLegend() {
         var legendEl = document.getElementById('mapLegend');
         if (!legendEl) { return; }
-        var shapes = { circle: 'circle', dot: 'dot', ring: 'ring', square: 'square', squareOutline: 'square', diamond: 'diamond', hex: 'hex', star: 'star' };
+        var shapes = { circle: 'circle', circleOutline: 'ring', dot: 'dot', ring: 'ring', square: 'square', squareOutline: 'square', diamond: 'diamond', hex: 'hex', star: 'star', triangle: 'triangle', triangleOutline: 'triangle' };
         var present = {};
         nodes.forEach(function (n) { present[n.t] = true; });
         var html = '';

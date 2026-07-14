@@ -6194,11 +6194,25 @@ else {
 
             if (-not $meanwhileDeleted) {
                 if ($hlperType -eq 'SP') {
+                    #Entra Agent ID: agent identities and blueprint principals are service principal subtypes
+                    $spAgentType = ''
+                    if ($object.servicePrincipalType -eq 'ServiceIdentity' -or $object.'@odata.type' -eq '#microsoft.graph.agentIdentity') {
+                        $spAgentType = 'Agent'
+                    }
+                    elseif ($object.'@odata.type' -eq '#microsoft.graph.agentIdentityBlueprintPrincipal') {
+                        $spAgentType = 'Agent Blueprint'
+                    }
                     $script:htSpLookup.($object.id).spDisplayName = $object.displayName
                     $script:htSpLookup.($object.id).spId = $object.id
                     $script:htSpLookup.($object.id).spAppId = $object.appId
                     $script:htServicePrincipalsAndAppsOnlyEnriched.($object.id).SPOrAppOnly = 'SP'
-                    if ($spType -eq 'APP') {
+                    if ($spAgentType) {
+                        $script:htServicePrincipalsAndAppsOnlyEnriched.($object.id).objectTypeConcatinated = "SP $($spAgentType)"
+                        $script:htSpLookup.($object.id).objectTypeConcatinated = "SP $($spAgentType)"
+                        $script:htServicePrincipalsAndAppsOnlyEnriched.($object.id).type = 'Agent'
+                        $script:htServicePrincipalsAndAppsOnlyEnriched.($object.id).subtype = $spAgentType
+                    }
+                    elseif ($spType -eq 'APP') {
                         $script:htServicePrincipalsAndAppsOnlyEnriched.($object.id).objectTypeConcatinated = "SP $($spType) $($spTypeINTEXT)"
                         $script:htSpLookup.($object.id).objectTypeConcatinated = "SP $($spType) $($spTypeINTEXT)"
                         $script:htSpLookup.($object.id).appDisplayName = $getApplication.displayName
@@ -7766,6 +7780,7 @@ $servicePrincipalsAndAppsOnlyEnrichedSPBatch | ForEach-Object -Parallel {
                     SPNotes = $object.ServicePrincipalDetails.notes
                     SPAppOwnerOrganizationId = $object.ServicePrincipalDetails.appOwnerOrganizationId
                     SPServicePrincipalType = $object.ServicePrincipalDetails.servicePrincipalType
+                    SPAgentBlueprintId = $object.ServicePrincipalDetails.agentIdentityBlueprintId
                     SPAccountEnabled = $object.ServicePrincipalDetails.accountEnabled
                     SPCreatedDateTime = $object.ServicePrincipalDetails.createdDateTime
                     #SPPublisherName             = $object.ServicePrincipalDetails.publisherName
@@ -8071,12 +8086,51 @@ try { $azadspiCss = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi.css" -Erro
 try { $azadspiReportJs = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi-report.js" -ErrorAction Stop } catch { Write-Host " Report script '.\$($ScriptPath)\assets\azadspi-report.js' not found - falling back to hosted scripts" }
 try { $azadspiMapJs = Get-Content -Raw ".\$($ScriptPath)\assets\azadspi-map.js" -ErrorAction Stop } catch { Write-Host " Map script '.\$($ScriptPath)\assets\azadspi-map.js' not found - the report will be built without the interactive Permission Map" }
 
+#region AgentIdentitySponsors
+#Entra Agent ID: collect sponsors (accountable humans) for agent identities
+$htAgentSponsors = @{}
+$cuAgents = @($cu.where({ $_.ObjectType -like 'SP Agent*' }))
+if ($cuAgents.Count -gt 0) {
+    Write-Host " Found $($cuAgents.Count) Entra Agent ID objects (agent identities / blueprint principals)"
+    $agentIdentityIds = @($cuAgents.where({ $_.ObjectType -eq 'SP Agent' }).ObjectId)
+    $agentSponsorsCollectionFailed = $false
+    foreach ($agentObjectId in $agentIdentityIds) {
+        if ($agentSponsorsCollectionFailed) { break }
+        $currentTask = "getAgentIdentity Sponsors $($agentObjectId)"
+        $uri = "$($azAPICallConf['azAPIEndpointUrls'].MicrosoftGraph)/v1.0/servicePrincipals/$($agentObjectId)/microsoft.graph.agentIdentity/sponsors"
+        $method = 'GET'
+        try {
+            $getAgentSponsors = AzAPICall -AzAPICallConfiguration $azAPICallConf -uri $uri -method $method -currentTask $currentTask
+            if ($getAgentSponsors -and $getAgentSponsors -isnot [string]) {
+                $arrayAgentSponsors = [System.Collections.ArrayList]@()
+                foreach ($agentSponsor in $getAgentSponsors) {
+                    if ($agentSponsor.id) {
+                        $agentSponsorDisplayName = $agentSponsor.displayName
+                        if (-not $agentSponsorDisplayName) { $agentSponsorDisplayName = $agentSponsor.id }
+                        $null = $arrayAgentSponsors.Add(@{
+                                id = $agentSponsor.id
+                                displayName = $agentSponsorDisplayName
+                                type = ($agentSponsor.'@odata.type' -replace '#microsoft.graph.')
+                            })
+                    }
+                }
+                if ($arrayAgentSponsors.Count -gt 0) { $htAgentSponsors.($agentObjectId) = $arrayAgentSponsors }
+            }
+        }
+        catch {
+            Write-Host " Collecting agent identity sponsors failed - continuing without sponsor information (listing sponsors requires Microsoft Graph application permission 'AgentIdentity.ReadWrite.All')"
+            $agentSponsorsCollectionFailed = $true
+        }
+    }
+}
+#endregion AgentIdentitySponsors
+
 $permissionMapDataJson = $null
 $permissionMapData = $null
 if ($script:permissionMapAvailable -and $azadspiMapJs) {
     Write-Host ' Building Permission Map data'
     $startPermissionMap = Get-Date
-    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit
+    $permissionMapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$MapIncludeUnclassifiedPermissions -AssignedToEdgeLimit $MapAssignedToEdgeLimit -AgentSponsors $htAgentSponsors
     $permissionMapDataJson = ($permissionMapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'
     $endPermissionMap = Get-Date
     Write-Host " Building Permission Map data ($($permissionMapData.stats.nodeCount) nodes, $($permissionMapData.stats.edgeCount) edges) duration: $((New-TimeSpan -Start $startPermissionMap -End $endPermissionMap).TotalSeconds) seconds"
@@ -8265,6 +8319,71 @@ if ($permissionMapDataJson) {
     $html += '<script id="azadspiMapData" type="application/json">' + $permissionMapDataJson + '</script>'
 }
 #endregion PermissionMapSection
+
+#region AgentIdentitiesSection
+if ($cuAgents.Count -gt 0) {
+    $htmlAgentsSection = [System.Text.StringBuilder]::new()
+    [void]$htmlAgentsSection.AppendLine("<button type=`"button`" class=`"collapsible`" id=`"agentIdentitiesSection`"><hr class=`"hr-textAgent`" data-content=`"&nbsp;Agent identities ($($cuAgents.Count))`" /></button>")
+    [void]$htmlAgentsSection.AppendLine(@'
+    <div class="content TenantSummaryContent">
+        <i class="padlx fa fa-table" aria-hidden="true"></i> Microsoft Entra Agent ID objects (AI agent identities and their blueprint principals). A sponsor is the human accountable for an agent identity - agent identities without a sponsor should be reviewed.
+        <table class="summaryTable">
+            <thead><tr><th>Display name</th><th>Type</th><th>Object Id</th><th>Blueprint (app) Id</th><th>Enabled</th><th>Created</th><th>Sponsors</th><th>App permissions (critical/medium/unclassified)</th><th>Delegated permissions (critical/medium/unclassified)</th></tr></thead>
+            <tbody>
+'@)
+    $agentRowCounter = 0
+    foreach ($agentEntry in $cuAgents) {
+        $agentRowCounter++
+        $agentRowClass = 'odd'
+        if ($agentRowCounter % 2 -eq 0) { $agentRowClass = 'even' }
+        $agentSp = $null
+        if ($agentEntry.SP) { $agentSp = @($agentEntry.SP)[0] }
+        $agentDisplayName = [string]$agentSp.SPDisplayName
+        $agentDisplayName = $agentDisplayName.Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;')
+        $agentBlueprintId = $agentSp.SPAgentBlueprintId
+        if (-not $agentBlueprintId) { $agentBlueprintId = '-' }
+        $agentIsAgentIdentity = $agentEntry.ObjectType -eq 'SP Agent'
+        $agentSponsorsCell = '-'
+        if ($agentIsAgentIdentity) {
+            if ($htAgentSponsors.($agentEntry.ObjectId)) {
+                $agentSponsorNames = foreach ($agentSponsorEntry in $htAgentSponsors.($agentEntry.ObjectId)) { ([string]$agentSponsorEntry.displayName).Replace('&', '&amp;').Replace('<', '&lt;').Replace('>', '&gt;') }
+                $agentSponsorsCell = $agentSponsorNames -join ', '
+            }
+            else {
+                $agentSponsorsCell = '<span style="color:var(--risk-critical);font-weight:600">none</span>'
+            }
+        }
+        $agentAppPermCritical = 0; $agentAppPermMedium = 0; $agentAppPermUnclassified = 0
+        foreach ($agentAra in $agentEntry.SPAppRoleAssignments) {
+            switch ($agentAra.AppRolePermissionSensitivity) {
+                'critical' { $agentAppPermCritical++ }
+                'medium' { $agentAppPermMedium++ }
+                default { $agentAppPermUnclassified++ }
+            }
+        }
+        $agentDelPermCritical = 0; $agentDelPermMedium = 0; $agentDelPermUnclassified = 0
+        foreach ($agentGrant in $agentEntry.SPOauth2PermissionGrants) {
+            switch ($agentGrant.permissionSensitivity) {
+                'critical' { $agentDelPermCritical++ }
+                'medium' { $agentDelPermMedium++ }
+                default { $agentDelPermUnclassified++ }
+            }
+        }
+        [void]$htmlAgentsSection.AppendLine("<tr class=`"$($agentRowClass)`"><td>$($agentDisplayName)</td><td>$($agentEntry.ObjectType)</td><td class=`"breakwordall`">$($agentEntry.ObjectId)</td><td class=`"breakwordall`">$($agentBlueprintId)</td><td>$($agentSp.SPAccountEnabled)</td><td>$($agentSp.SPCreatedDateTime)</td><td>$($agentSponsorsCell)</td><td>$($agentAppPermCritical)/$($agentAppPermMedium)/$($agentAppPermUnclassified)</td><td>$($agentDelPermCritical)/$($agentDelPermMedium)/$($agentDelPermUnclassified)</td></tr>")
+    }
+    [void]$htmlAgentsSection.AppendLine(@'
+            </tbody>
+        </table>
+    </div>
+'@)
+    $html += $htmlAgentsSection.ToString()
+}
+else {
+    $html += @'
+    <button type="button" class="nonCollapsible" id="agentIdentitiesSection"><hr class="hr-textAgent fontGrey" data-content="&nbsp;Agent identities (none)" /></button>
+'@
+}
+#endregion AgentIdentitiesSection
 
 $startSummary = Get-Date
 

@@ -22,7 +22,14 @@ $repoRoot = Split-Path $PSScriptRoot -Parent
 
 $cu = Get-Content -Raw (Join-Path $PSScriptRoot 'sample-cu.json') | ConvertFrom-Json
 
-$mapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$IncludeUnclassifiedPermissions
+#mock sponsors for the sample agent identity (mirrors $htAgentSponsors built by the main script)
+$agentSponsors = @{
+    '10000000-0000-0000-0000-000000000011' = @(
+        @{ id = '40000000-0000-0000-0000-000000000001'; displayName = 'Ava Meyer'; type = 'user' }
+    )
+}
+
+$mapData = Build-AzADSPIMapData -cu $cu -IncludeUnclassifiedPermissions:$IncludeUnclassifiedPermissions -AgentSponsors $agentSponsors
 Write-Host "Built map data: $($mapData.stats.nodeCount) nodes, $($mapData.stats.edgeCount) edges ($($mapData.stats.criticalNodeCount) critical, $($mapData.stats.mediumNodeCount) medium)"
 
 #sanity checks - fail loudly on schema drift
@@ -38,6 +45,14 @@ foreach ($edge in $mapData.edges) {
 }
 $criticalPermNode = $mapData.nodes | Where-Object { $_.t -eq 'permApp' -and $_.r -eq 'critical' } | Select-Object -First 1
 if (-not $criticalPermNode) { throw 'expected at least one critical application permission node from sample-cu.json' }
+$agentNode = $mapData.nodes | Where-Object { $_.t -eq 'agent' } | Select-Object -First 1
+if (-not $agentNode) { throw 'expected at least one agent identity node from sample-cu.json' }
+$blueprintEdge = $mapData.edges | Where-Object { $_.k -eq 'instanceOf' } | Select-Object -First 1
+if (-not $blueprintEdge) { throw 'expected an instanceOf edge linking agent identity to its blueprint principal' }
+$sponsorEdge = $mapData.edges | Where-Object { $_.k -eq 'sponsors' } | Select-Object -First 1
+if (-not $sponsorEdge) { throw 'expected a sponsors edge for the sample agent identity' }
+$sponsorlessAgent = $mapData.nodes | Where-Object { $_.t -eq 'agent' -and $_.m.noSponsor } | Select-Object -First 1
+if (-not $sponsorlessAgent) { throw 'expected the sponsorless agent identity to be flagged (m.noSponsor)' }
 Write-Host 'Sanity checks passed'
 
 $mapDataJson = ($mapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'
