@@ -170,13 +170,31 @@ Connect-AzAccount -ServicePrincipal -TenantId <tenantId> -Credential $pscredenti
 
 # Preview
 
-Permission Map (light theme):
+The screenshots below are generated from the offline sample dataset; no tenant identities are published.
 
-![PermissionMap light](img/permissionmap_light.png)
+## Investigation workspace
 
-Permission Map - node selected with details panel (dark theme):
+The report opens with prioritized findings, investigation presets and a global evidence search.
 
-![PermissionMap dark](img/permissionmap_dark.png)
+![EntraAppMap investigation workspace in the light theme](img/entramap_overview_light.png)
+
+## Permission Map
+
+The map keeps search, filters and investigation modes close to the graph while preserving maximum canvas space.
+
+![EntraAppMap permission map in the dark theme](img/entramap_map_dark.png)
+
+## Identity investigation
+
+Selecting an identity isolates its relationships and opens contextual evidence and investigation actions.
+
+![EntraAppMap selected identity details in the dark theme](img/entramap_investigation_dark.png)
+
+## Evidence tables
+
+Report inventories use consistent filtering, column controls, compact mode and readable wide-table scrolling.
+
+![EntraAppMap stale identity evidence table in the dark theme](img/entramap_evidence_dark.png)
 
 # Updates
 
