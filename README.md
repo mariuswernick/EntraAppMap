@@ -36,9 +36,13 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
   * Export the current (filtered) view as PNG image or JSON (nodes/edges)
   * Fully self-contained - no external JavaScript libraries, works in air-gapped environments
   * Related parameters: `NoPermissionMap`, `MapIncludeUnclassifiedPermissions`, `MapAssignedToEdgeLimit`
+* Azure RBAC &amp; federated trust on the map
+  * Critical (privileged) Azure role assignments surface the Azure scope (management group / subscription / resource group / resource) as a node with an 'Azure role on' edge, so an identity's Azure blast radius is visible - not just a count
+  * Federated identity credentials appear as external-issuer nodes with a 'can obtain tokens as' edge into the app they can impersonate (e.g. a GitHub Actions repo or a Kubernetes service account), making token-exchange trust paths explorable and path-findable (issuer &rarr; app &rarr; Azure scope)
+  * New 'Azure scopes' and 'Federated creds' map filters and legend entries
 * Sign-in activity &amp; stale identity detection
   * Collects service principal sign-in activity (last sign-in, split by app-only/delegated and client/resource) for app registrations, enterprise apps and agent identities
-  * New 'Stale identities' report section flags identities with no sign-in newer than the threshold (default 90 days), disabled accounts and never-used registrations - each with the reason, the owner(s) to confirm with and a suggested action (confirm &rarr; disable &rarr; soft-delete)
+  * New 'Stale identities' report section flags identities with no sign-in newer than the threshold (default 90 days), disabled accounts, never-used registrations and apps whose credentials are all expired - each with the reason, the owner(s) to confirm with and a suggested action (confirm &rarr; disable &rarr; soft-delete)
   * Mirrors Microsoft's 'Remove unused applications' logic: exempts freshly created apps, treats external/multi-tenant apps as review-only, and excludes managed identities from sign-in based staleness (not covered by the report)
   * On the Permission Map: a 'Stale only' filter, a stale callout with last sign-in and reasons in the details panel
   * Requires the Microsoft Graph application permission `AuditLog.Read.All`; the underlying report is beta and available in the global cloud only - without it the report still builds (disabled accounts are still flagged)
@@ -197,6 +201,11 @@ Report inventories use consistent filtering, column controls, compact mode and r
 ![EntraAppMap stale identity evidence table in the dark theme](img/entramap_evidence_dark.png)
 
 # Updates
+
+* 20260715_2 (EntraAppMap fork)
+    * Azure RBAC map layer: critical Azure role assignments now render the Azure scope as a node with an 'Azure role on' edge (management group / subscription / resource group / resource)
+    * Federated identity credentials on the map: external issuers (GitHub Actions, Kubernetes, other IdPs) shown as nodes with a 'can obtain tokens as' edge into the app they can impersonate - full token-exchange attack paths (issuer &rarr; app &rarr; Azure scope) are now path-findable
+    * Stale identity detection also flags apps whose secrets/certificates are all expired (cannot authenticate)
 
 * 20260715_1 (EntraAppMap fork)
     * Privacy/fork hygiene: removed the upstream usage telemetry entirely (no more posts to the upstream author's Application Insights; `StatsOptOut` is now a deprecated no-op), repointed the update check and its links from the upstream repository to this fork, aligned `version.txt` with the script version, and updated the default `GitHubRepository` reference

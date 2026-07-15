@@ -3,7 +3,7 @@ Param
 (
     [string]$Product = 'AzADServicePrincipalInsights',
     [string]$ScriptPath = 'pwsh',
-    [string]$ProductVersion = 'v1_20260715_1',
+    [string]$ProductVersion = 'v1_20260715_2',
     [string][ValidateSet('AzAPICall', 'AzAPICallBeta')]$AzAPICallModuleName = 'AzAPICall',
     [string]$azAPICallVersion = '1.2.5',
     [string]$GitHubRepository = 'github.com/mariuswernick/EntraAppMap',
