@@ -20,7 +20,9 @@
         resource: { label: 'Resource API', colorVar: '--map-resource', shape: 'squareOutline', baseRadius: 10 },
         permApp: { label: 'Application permission', colorVar: '--map-perm-none', shape: 'dot', baseRadius: 4.5 },
         permDel: { label: 'Delegated permission', colorVar: '--map-perm-none', shape: 'ring', baseRadius: 4.5 },
-        role: { label: 'Entra directory role', colorVar: '--map-role', shape: 'star', baseRadius: 7 }
+        role: { label: 'Entra directory role', colorVar: '--map-role', shape: 'star', baseRadius: 7 },
+        azScope: { label: 'Azure scope (RBAC)', colorVar: '--map-azscope', shape: 'squareOutline', baseRadius: 9 },
+        fic: { label: 'Federated credential', colorVar: '--map-fic', shape: 'pentagon', baseRadius: 7 }
     };
 
     var FILTER_GROUPS = [
@@ -31,7 +33,9 @@
         { key: 'groups', label: 'Groups', types: ['group'], colorVar: '--map-group', shape: 'square' },
         { key: 'resources', label: 'Resource APIs', types: ['resource'], colorVar: '--map-resource', shape: 'square' },
         { key: 'perms', label: 'Permissions', types: ['permApp', 'permDel'], colorVar: '--map-perm-critical', shape: 'circle' },
-        { key: 'roles', label: 'Directory roles', types: ['role'], colorVar: '--map-role', shape: 'square' }
+        { key: 'roles', label: 'Directory roles', types: ['role'], colorVar: '--map-role', shape: 'square' },
+        { key: 'azure', label: 'Azure scopes', types: ['azScope'], colorVar: '--map-azscope', shape: 'square' },
+        { key: 'fic', label: 'Federated creds', types: ['fic'], colorVar: '--map-fic', shape: 'square' }
     ];
 
     var RISK_CHIPS = [
@@ -50,12 +54,15 @@
         memberOf: 'member of',
         aadRole: 'directory role',
         sponsors: 'sponsor of',
-        instanceOf: 'instance of blueprint'
+        instanceOf: 'instance of blueprint',
+        azRole: 'Azure role on',
+        canImpersonate: 'can obtain tokens as'
     };
 
     var LINK_DISTANCE = {
         owns: 62, permApp: 48, permDel: 48, onApi: 55, usesApi: 95,
-        assignedTo: 72, memberOf: 70, aadRole: 60, sponsors: 62, instanceOf: 55
+        assignedTo: 72, memberOf: 70, aadRole: 60, sponsors: 62, instanceOf: 55,
+        azRole: 66, canImpersonate: 60
     };
 
     var META_LABELS = {
@@ -69,7 +76,9 @@
         classification: 'Classification', roleType: 'Role type', roleDefinitionId: 'Role definition ID',
         blueprintId: 'Blueprint (app) ID', lastSignIn: 'Last sign-in',
         aggregateCount: 'Members', connectedCount: 'Connected', unconnectedCount: 'Unconnected',
-        publisher: 'Publisher / owner organization'
+        publisher: 'Publisher / owner organization',
+        scopeId: 'Azure scope ID', scopeKind: 'Scope kind', issuer: 'Issuer', subject: 'Subject',
+        audiences: 'Audiences', name: 'Name'
     };
 
     /* ------------------------------------------------------------------ */
@@ -231,7 +240,7 @@
         /* cluster-seeded initial positions: each type starts in its own zone */
         var clusterAngle = {
             app: -2.2, appExt: -1.2, mi: -2.9, agent: -1.7, agentBp: -1.9, resource: 0, permApp: -0.5, permDel: 0.5,
-            user: 2.4, guest: 2.0, group: 1.5, role: 3.0
+            user: 2.4, guest: 2.0, group: 1.5, role: 3.0, azScope: -0.9, fic: -1.4
         };
         var spread = Math.max(240, Math.sqrt(nodes.length) * 26);
         nodes.forEach(function (n) {
@@ -370,7 +379,7 @@
         var clusterAngle = {
             app: -2.2, appExt: -1.2, mi: -2.9, agent: -1.7, agentBp: -1.9,
             resource: 0, permApp: -0.5, permDel: 0.5, user: 2.4,
-            guest: 2.0, group: 1.5, role: 3.0
+            guest: 2.0, group: 1.5, role: 3.0, azScope: -0.9, fic: -1.4
         };
         var byType = {};
         nodes.forEach(function (n) {
@@ -909,6 +918,10 @@
                 break;
             case 'hex':
                 polygonPath(node.x, node.y, r * 1.12, 6, Math.PI / 6);
+                ctx.fill();
+                break;
+            case 'pentagon':
+                polygonPath(node.x, node.y, r * 1.2, 5, -Math.PI / 2);
                 ctx.fill();
                 break;
             case 'star':
@@ -1952,7 +1965,7 @@
     function initLegend() {
         var legendEl = document.getElementById('mapLegend');
         if (!legendEl) { return; }
-        var shapes = { circle: 'circle', circleOutline: 'ring', dot: 'dot', ring: 'ring', square: 'square', squareOutline: 'square', diamond: 'diamond', hex: 'hex', star: 'star', triangle: 'triangle', triangleOutline: 'triangle' };
+        var shapes = { circle: 'circle', circleOutline: 'ring', dot: 'dot', ring: 'ring', square: 'square', squareOutline: 'square', diamond: 'diamond', hex: 'hex', star: 'star', triangle: 'triangle', triangleOutline: 'triangle', pentagon: 'pentagon' };
         var present = {};
         nodes.forEach(function (n) { present[n.t] = true; });
         var html = '';

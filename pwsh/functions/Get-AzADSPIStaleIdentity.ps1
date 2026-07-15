@@ -144,6 +144,22 @@ function Get-AzADSPIStaleIdentity {
             }
         }
 
+        #dead credentials: the app has secrets/certs but every one of them is expired, so it can no longer
+        #authenticate as a client. This is independent of the sign-in report and works for managed identities' apps too.
+        $credentials = [System.Collections.ArrayList]@()
+        foreach ($credCollectionName in @('APPPasswordCredentials', 'APPKeyCredentials')) {
+            if ($entry.PSObject.Properties[$credCollectionName] -and $entry.$credCollectionName) {
+                foreach ($cred in $entry.$credCollectionName) { $null = $credentials.Add($cred) }
+            }
+        }
+        if ($credentials.Count -gt 0 -and -not $isManagedIdentity) {
+            $expiredCount = @($credentials.where({ [string]$_.expiryInfo -eq 'expired' })).Count
+            if ($expiredCount -eq $credentials.Count) {
+                $null = $reasons.Add("all $($credentials.Count) credential(s) expired")
+                $isStale = $true
+            }
+        }
+
         #external/multi-tenant resource principals are reported but not treated as removable candidates
         if ($isStale -and $isExternal) {
             $isStale = $false

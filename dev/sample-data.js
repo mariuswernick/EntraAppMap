@@ -152,9 +152,37 @@
             if (n.r !== 'critical') { n.r = 'medium'; }
         });
     }
-    markStale(crm, ['no sign-in for 412 days'], '2024-05-28');
+    markStale(crm, ['no sign-in for 412 days', 'all 4 credential(s) expired'], '2024-05-28');
     markStale(marketing, ['never signed in'], null);
     markStale(reporting, ['account disabled', 'no sign-in for 190 days'], '2025-01-05');
+    markStale(backup, ['all 1 credential(s) expired'], null);
+
+    /* ---------------- Azure RBAC scopes (critical roles surface a scope node + azRole edge) ---------------- */
+    function azScope(n, name, kind) {
+        var id = 'azscope|/subscriptions/' + guid(800 + n);
+        addNode(id, 'azScope', name, 'Azure scope · ' + kind, null, { scopeId: '/subscriptions/' + guid(800 + n), scopeKind: kind });
+        return id;
+    }
+    var subProd = azScope(1, 'sub-prod-platform', 'Subscription');
+    var mgRoot = azScope(2, 'Tenant Root Group', 'Management Group');
+    var rgBilling = azScope(3, 'rg-billing', 'Resource Group');
+    addEdge(devops, mgRoot, 'azRole', 'Owner', 'critical');       /* devops app = Owner at MG root = big blast radius */
+    addEdge(miAks, subProd, 'azRole', 'Contributor', 'critical');
+    addEdge(miFunc, rgBilling, 'azRole', 'Reader');              /* non-critical, shown because IncludeUnclassified in preview */
+    setRisk(devops, 'critical');
+
+    /* ---------------- Federated identity credentials (external issuers that can impersonate an app) ---------------- */
+    function fic(issuer, subject, name) {
+        var id = 'fic|' + issuer + '|' + subject;
+        var label = issuer.replace(/^https?:\/\//, '') + ' · ' + subject;
+        addNode(id, 'fic', label.length > 60 ? label.slice(0, 59) + '…' : label, 'Federated credential (external issuer)', 'medium',
+            { issuer: issuer, subject: subject, name: name, audiences: 'api://AzureADTokenExchange' });
+        return id;
+    }
+    var ficGithub = fic('https://token.actions.githubusercontent.com', 'repo:contoso/infra:ref:refs/heads/main', 'gh-deploy');
+    var ficK8s = fic('https://oidc.prod-aks.azure.com/abc', 'system:serviceaccount:ns:deployer', 'aks-workload');
+    addEdge(ficGithub, devops, 'canImpersonate', 'federated', 'medium');
+    addEdge(ficK8s, hrSync, 'canImpersonate', 'federated', 'medium');
 
     /* risk rollup mirrors the builder: node.r = max of its permissions/roles */
     function setRisk(id, r) {

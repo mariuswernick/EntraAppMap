@@ -437,6 +437,67 @@ function Build-AzADSPIMapData {
             }
         }
         #endregion Entra directory roles
+
+        #region Azure RBAC role assignments (Azure resource scopes)
+        if ($entry.PSObject.Properties['SPAzureRoleAssignments'] -and $entry.SPAzureRoleAssignments) {
+            foreach ($azRa in $entry.SPAzureRoleAssignments) {
+                if (-not $azRa.roleAssignmentAssignmentScopeId) { continue }
+                #by default only surface critical (privileged) Azure roles as nodes to keep the map readable
+                $azRoleIsCritical = [bool]$azRa.roleIsCritical
+                if (-not $azRoleIsCritical -and -not $IncludeUnclassifiedPermissions) { continue }
+
+                $scopeId = [string]$azRa.roleAssignmentAssignmentScopeId
+                $scopeName = $azRa.roleAssignmentAssignmentScopeName
+                if (-not $scopeName) { $scopeName = $scopeId }
+                #scope kind from the scope id shape (MG / subscription / RG / resource)
+                $scopeKind = 'Resource'
+                if ($scopeId -match '/managementGroups/') { $scopeKind = 'Management Group' }
+                elseif ($scopeId -match '^/subscriptions/[^/]+$') { $scopeKind = 'Subscription' }
+                elseif ($scopeId -match '/resourceGroups/[^/]+$') { $scopeKind = 'Resource Group' }
+                elseif ($scopeId -match '/subscriptions/') { $scopeKind = 'Resource' }
+
+                $azScopeNodeId = "azscope|$($scopeId)"
+                addMapNode -id $azScopeNodeId -t 'azScope' -l $scopeName -sub "Azure scope · $($scopeKind)" -r $null -m ([ordered]@{
+                        scopeId = $scopeId
+                        scopeKind = $scopeKind
+                    }) -stub
+                $azEdgeRisk = $null
+                if ($azRoleIsCritical) { $azEdgeRisk = 'critical' }
+                $azEdgeLabel = $azRa.roleName
+                if ($azRa.roleAssignmentApplicability -eq 'indirect') { $azEdgeLabel = "$($azRa.roleName) (inherited)" }
+                addMapEdge -s $nodeId -d $azScopeNodeId -k 'azRole' -l $azEdgeLabel -r $azEdgeRisk
+                #a critical (privileged) Azure role elevates the identity node's risk (node already added above)
+                if ($azRoleIsCritical -and $htNodes.ContainsKey($nodeId)) { $htNodes[$nodeId].r = riskMax $htNodes[$nodeId].r 'critical' }
+            }
+        }
+        #endregion Azure RBAC role assignments
+
+        #region Federated identity credentials (external issuers that can impersonate this app)
+        $ficSource = $null
+        if ($entry.PSObject.Properties['APPFederatedIdentityCredentials'] -and $entry.APPFederatedIdentityCredentials) { $ficSource = @($entry.APPFederatedIdentityCredentials) }
+        elseif ($entry.PSObject.Properties['ManagedIdentityFederatedIdentityCredentials'] -and $entry.ManagedIdentityFederatedIdentityCredentials) { $ficSource = @($entry.ManagedIdentityFederatedIdentityCredentials) }
+        if ($ficSource) {
+            foreach ($fic in $ficSource) {
+                if (-not $fic.issuer) { continue }
+                #node per (issuer, subject) - that pair is the trust relationship that can mint tokens for the app
+                $ficIssuer = [string]$fic.issuer
+                $ficSubject = [string]$fic.subject
+                $ficNodeId = "fic|$($ficIssuer)|$($ficSubject)"
+                #short label: host of the issuer + subject tail (e.g. token.actions.githubusercontent.com → repo:org/repo:ref)
+                $ficLabel = $ficIssuer -replace '^https?://', ''
+                if ($ficSubject) { $ficLabel = "$($ficLabel) · $($ficSubject)" }
+                if ($ficLabel.Length -gt 60) { $ficLabel = $ficLabel.Substring(0, 59) + '…' }
+                addMapNode -id $ficNodeId -t 'fic' -l $ficLabel -sub 'Federated credential (external issuer)' -r 'medium' -m ([ordered]@{
+                        issuer = $ficIssuer
+                        subject = $ficSubject
+                        name = $fic.name
+                        audiences = ($fic.audiences -join ', ')
+                    })
+                #edge points issuer -> app: the external identity can obtain tokens AS the app
+                addMapEdge -s $ficNodeId -d $nodeId -k 'canImpersonate' -l 'federated' -r 'medium'
+            }
+        }
+        #endregion Federated identity credentials
     }
 
     #resolve agent -> blueprint links (the blueprint principal SP shares the blueprint's appId)

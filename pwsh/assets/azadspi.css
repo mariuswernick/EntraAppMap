@@ -41,6 +41,8 @@
     --map-group: #eda100;
     --map-resource: #898781;
     --map-role: #eb6834;
+    --map-azscope: #0e7c86;
+    --map-fic: #8a6d3b;
     --map-perm-critical: #d03b3b;
     --map-perm-medium: #fab219;
     --map-perm-none: #898781;
@@ -99,6 +101,8 @@
         --map-group: #c98500;
         --map-resource: #898781;
         --map-role: #d95926;
+        --map-azscope: #2bb6c4;
+        --map-fic: #c2a15e;
         --map-perm-critical: #d03b3b;
         --map-perm-medium: #fab219;
         --map-perm-none: #898781;
@@ -150,6 +154,8 @@
     --map-group: #c98500;
     --map-resource: #898781;
     --map-role: #d95926;
+    --map-azscope: #2bb6c4;
+    --map-fic: #c2a15e;
     --map-perm-critical: #d03b3b;
     --map-perm-medium: #fab219;
     --map-perm-none: #898781;
@@ -1250,6 +1256,7 @@ body.azadspiDrawerOpen { padding-right: min(480px, 96vw); }
 .mapLegend .legendSwatch.ring { border-radius: 50%; background: transparent; border: 2.5px solid var(--sw, var(--ink-3)); }
 .mapLegend .legendSwatch.star { clip-path: polygon(50% 0, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
 .mapLegend .legendSwatch.triangle { clip-path: polygon(50% 0, 100% 100%, 0 100%); }
+.mapLegend .legendSwatch.pentagon { clip-path: polygon(50% 0, 100% 38%, 82% 100%, 18% 100%, 0 38%); }
 
 .mapTooltip {
     position: absolute;

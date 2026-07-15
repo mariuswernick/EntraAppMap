@@ -89,6 +89,20 @@ if ($mapData.stats.removedNodeCount -ne 1) { throw "expected one removed node, g
 $removedNode = $mapData.nodes | Where-Object { $_.m.change -eq 'removed' } | Select-Object -First 1
 if (-not $removedNode) { throw 'expected a removed ghost node in map data' }
 Write-Host "Stale identity candidates on map: $($mapData.stats.staleNodeCount)"
+
+#Azure RBAC layer: HR Sync Service has a critical Contributor role -> expect an azScope node + azRole edge
+$azScopeNode = $mapData.nodes | Where-Object { $_.t -eq 'azScope' } | Select-Object -First 1
+if (-not $azScopeNode) { throw 'expected an Azure scope node from the critical SPAzureRoleAssignments in sample-cu.json' }
+$azRoleEdge = $mapData.edges | Where-Object { $_.k -eq 'azRole' } | Select-Object -First 1
+if (-not $azRoleEdge) { throw 'expected an azRole edge to the Azure scope node' }
+#Federated identity credential: HR Sync has a GitHub Actions FIC -> expect a fic node + canImpersonate edge into the app
+$ficNode = $mapData.nodes | Where-Object { $_.t -eq 'fic' } | Select-Object -First 1
+if (-not $ficNode) { throw 'expected a federated credential node from APPFederatedIdentityCredentials in sample-cu.json' }
+$ficEdge = $mapData.edges | Where-Object { $_.k -eq 'canImpersonate' } | Select-Object -First 1
+if (-not $ficEdge -or $ficEdge.d -notlike 'sp|*') { throw 'expected a canImpersonate edge pointing from the issuer to the app' }
+#Credential staleness: the orphaned app-only registration has a single expired secret -> 'all N credential(s) expired'
+$orphanStaleCreds = $staleness['60000000-0000-0000-0000-000000000002']
+if ($orphanStaleCreds.reasons -notmatch 'credential\(s\) expired') { throw "expected a 'credentials expired' stale reason for the orphaned app; got: $($orphanStaleCreds.reasons -join ', ')" }
 Write-Host 'Sanity checks passed'
 
 $mapDataJson = ($mapData | ConvertTo-Json -Depth 6 -Compress) -replace '</', '<\/'

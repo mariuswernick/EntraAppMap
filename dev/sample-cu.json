@@ -105,6 +105,25 @@
         "APPPasswordCredentials": [
             { "keyId": "k-001", "displayName": "sync-secret", "expiryInfo": "expires in 40 days" },
             { "keyId": "k-002", "displayName": "old-secret", "expiryInfo": "expired" }
+        ],
+        "SPAzureRoleAssignments": [
+            {
+                "roleName": "Contributor",
+                "roleId": "b24988ac-6180-42a0-ab88-20f7382dd24c",
+                "roleIsCritical": true,
+                "roleAssignmentApplicability": "direct",
+                "roleAssignmentAssignmentScope": "sub",
+                "roleAssignmentAssignmentScopeId": "/subscriptions/aaaa1111-2222-3333-4444-555566667777",
+                "roleAssignmentAssignmentScopeName": "sub-prod-hr"
+            }
+        ],
+        "APPFederatedIdentityCredentials": [
+            {
+                "name": "gh-deploy",
+                "issuer": "https://token.actions.githubusercontent.com",
+                "subject": "repo:contoso/hr-sync:ref:refs/heads/main",
+                "audiences": ["api://AzureADTokenExchange"]
+            }
         ]
     },
     {
