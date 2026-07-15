@@ -2,6 +2,15 @@
 (function () {
     'use strict';
 
+    function escapeHtml(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     /* ---------------------------------------------------------------
        Theme handling. The <head> bootstrap script stamps data-theme
        before first paint; this wires the toggle button + chart retheme.
@@ -21,20 +30,180 @@
         document.dispatchEvent(new CustomEvent('azadspi:themechange', { detail: { theme: theme } }));
     }
 
+    function chartInstances() {
+        var instances = [];
+        if (typeof Chart === 'undefined' || !Chart.instances) { return instances; }
+        Object.keys(Chart.instances).forEach(function (key) {
+            if (Chart.instances[key]) { instances.push(Chart.instances[key]); }
+        });
+        return instances;
+    }
+
+    function chartLabel(label) {
+        var value = String(label == null ? '' : label);
+        if (value === '!notesN/A && !notesNotSet') { return 'Notes present'; }
+        if (value === 'notesNotSet') { return 'Notes missing'; }
+        return value;
+    }
+
+    function chartColor(styles, label, index) {
+        var value = String(label || '').toLowerCase();
+        var property;
+        var palette = ['--accent', '--cat-mi', '--risk-medium', '--map-appext', '--cat-agent', '--risk-critical'];
+        if (/expired|without owner|missing|not set/.test(value)) { property = '--risk-critical'; }
+        else if (/expire soon|warning/.test(value)) { property = '--risk-medium'; }
+        else if (/with owner|present|valid/.test(value)) { property = '--good'; }
+        else { property = palette[index % palette.length]; }
+        return styles.getPropertyValue(property).trim() || '#3987e5';
+    }
+
+    function modernizeCharts() {
+        var originals;
+        if (typeof Chart === 'undefined') { return; }
+        originals = chartInstances();
+        originals.forEach(function (chart) {
+            var originalData;
+            var originalOptions;
+            var originalClick;
+            var originalTooltip;
+            var labels = [];
+            var values = [];
+            var mappings = [];
+            var canvas;
+            var card;
+            var plot;
+            var summary;
+            var total = 0;
+            var topIndex = 0;
+            var modern;
+            if (!chart || chart.$azadspiModernized || !chart.canvas) { return; }
+            originalData = chart.config && chart.config.data ? chart.config.data : chart.data;
+            originalOptions = chart.options || {};
+            originalClick = originalOptions.onClick;
+            originalTooltip = originalOptions.tooltips && originalOptions.tooltips.callbacks
+                ? originalOptions.tooltips.callbacks.label : null;
+            (originalData.datasets || []).forEach(function (dataset, datasetIndex) {
+                (dataset.data || []).forEach(function (rawValue, dataIndex) {
+                    var originalLabel = dataset.labels && dataset.labels[dataIndex] != null
+                        ? dataset.labels[dataIndex]
+                        : ((originalData.labels || [])[dataIndex] || ('Category ' + (dataIndex + 1)));
+                    var value = Number(rawValue) || 0;
+                    labels.push(chartLabel(originalLabel));
+                    values.push(value);
+                    mappings.push({ datasetIndex: datasetIndex, dataIndex: dataIndex });
+                    total += value;
+                    if (value > values[topIndex]) { topIndex = values.length - 1; }
+                });
+            });
+            if (!labels.length) { return; }
+            canvas = chart.canvas;
+            card = canvas.closest ? canvas.closest('.chartDiv') : canvas.parentNode;
+            if (card) {
+                card.classList.add('azadspiDistributionCard');
+                var title = card.querySelector('span');
+                if (title) { title.classList.add('azadspiChartTitle'); }
+                summary = document.createElement('div');
+                summary.className = 'azadspiChartSummary';
+                summary.innerHTML = '<strong>' + values[topIndex] + '</strong><span title="' + escapeHtml(labels[topIndex]) + '">' + escapeHtml(labels[topIndex]) + '</span><small>top category · ' + total + ' total</small>';
+                plot = document.createElement('div');
+                plot.className = 'azadspiChartPlot';
+                plot.style.height = Math.max(150, labels.length * 29 + 34) + 'px';
+                card.insertBefore(summary, canvas);
+                card.insertBefore(plot, canvas);
+                plot.appendChild(canvas);
+            }
+            canvas.removeAttribute('style');
+            canvas.setAttribute('role', 'img');
+            canvas.setAttribute('aria-label', ((card && card.querySelector('.azadspiChartTitle')) ? textOf(card.querySelector('.azadspiChartTitle')) : 'Inventory') + ' ranked distribution');
+            try { chart.destroy(); } catch (e) { /* recreate in place */ }
+            modern = new Chart(canvas, {
+                type: 'horizontalBar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: values,
+                        backgroundColor: labels.map(function () { return '#3987e5'; }),
+                        borderWidth: 0,
+                        barPercentage: 0.72,
+                        categoryPercentage: 0.82
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 220 },
+                    legend: { display: false },
+                    layout: { padding: { left: 0, right: 16, top: 2, bottom: 0 } },
+                    scales: {
+                        xAxes: [{ ticks: { beginAtZero: true, precision: 0, fontSize: 10 }, gridLines: { drawBorder: false } }],
+                        yAxes: [{
+                            ticks: {
+                                fontSize: 11,
+                                callback: function (value) {
+                                    value = String(value);
+                                    return value.length > 28 ? value.slice(0, 18) + '…' + value.slice(-6) : value;
+                                }
+                            },
+                            gridLines: { display: false, drawBorder: false }
+                        }]
+                    },
+                    tooltips: {
+                        displayColors: false,
+                        callbacks: {
+                            label: function (tooltipItem, data) {
+                                var value = Number(data.datasets[0].data[tooltipItem.index]) || 0;
+                                var percent = total ? Math.round((value / total) * 100) : 0;
+                                return data.labels[tooltipItem.index] + ': ' + value + ' (' + percent + '%)';
+                            }
+                        }
+                    },
+                    onClick: function (event, elements) {
+                        var mapping;
+                        if (!elements || !elements.length) { return; }
+                        mapping = mappings[elements[0]._index];
+                        if (originalTooltip) {
+                            originalTooltip({ datasetIndex: mapping.datasetIndex, index: mapping.dataIndex }, originalData);
+                        }
+                        if (originalClick) { originalClick(event, elements); }
+                    }
+                }
+            });
+            modern.$azadspiModernized = true;
+            modern.$azadspiLabels = labels;
+        });
+    }
+
     function rethemeCharts() {
         if (typeof Chart === 'undefined') { return; }
         var styles = getComputedStyle(document.documentElement);
         var ink = styles.getPropertyValue('--ink-2').trim() || '#52514e';
+        var muted = styles.getPropertyValue('--ink-3').trim() || '#898781';
+        var hairline = styles.getPropertyValue('--hairline').trim() || '#e1e0d9';
         var font = styles.getPropertyValue('--font').trim() || 'system-ui, sans-serif';
         if (Chart.defaults && Chart.defaults.global) {
             Chart.defaults.global.defaultFontColor = ink;
             Chart.defaults.global.defaultFontFamily = font;
         }
-        if (Chart.instances) {
-            Object.keys(Chart.instances).forEach(function (key) {
-                try { Chart.instances[key].update(); } catch (e) { /* chart may be detached */ }
-            });
-        }
+        chartInstances().forEach(function (chart) {
+            try {
+                if (chart.$azadspiLabels && chart.data && chart.data.datasets[0]) {
+                    chart.data.datasets[0].backgroundColor = chart.$azadspiLabels.map(function (label, index) {
+                        return chartColor(styles, label, index);
+                    });
+                }
+                if (chart.options && chart.options.scales) {
+                    (chart.options.scales.xAxes || []).forEach(function (axis) {
+                        axis.ticks.fontColor = muted;
+                        axis.gridLines.color = hairline;
+                        axis.gridLines.zeroLineColor = hairline;
+                    });
+                    (chart.options.scales.yAxes || []).forEach(function (axis) {
+                        axis.ticks.fontColor = ink;
+                    });
+                }
+                chart.update();
+            } catch (e) { /* chart may be detached */ }
+        });
     }
 
     function initThemeToggle() {
@@ -321,6 +490,76 @@
         return list && list.length ? list[0] : null;
     }
 
+    function removeLegacyTableExport(table) {
+        var node = table.previousSibling;
+        var removable = [];
+        var foundExport = false;
+        var previous;
+        while (node && removable.length < 10) {
+            previous = node.previousSibling;
+            if (node.nodeType === 3 && /^\s*(?:Download CSV)?\s*(?:\|)?\s*$/.test(node.nodeValue || '')) {
+                removable.push(node);
+            } else if (node.nodeType === 1 && node.matches && node.matches('a.externallink[onclick*="download_table_as_csv"]')) {
+                foundExport = true;
+                removable.push(node);
+            } else if (node.nodeType === 1 && node.matches && node.matches('div') && node.querySelector('a.externallink[onclick*="download_table_as_csv"]')) {
+                foundExport = true;
+                removable.push(node);
+                break;
+            } else if (node.nodeType === 1 && node.matches && node.matches('i.fa-table')) {
+                removable.push(node);
+                break;
+            } else {
+                break;
+            }
+            node = previous;
+        }
+        if (foundExport) {
+            removable.forEach(function (entry) {
+                if (entry.parentNode) { entry.parentNode.removeChild(entry); }
+            });
+        }
+    }
+
+    function prepareNativeFilterRow(state) {
+        var row = state.table.querySelector('thead tr.fltrow');
+        if (!row) { return; }
+        row.setAttribute('aria-label', 'Column filters');
+        row.parentNode.appendChild(row);
+        each(row.querySelectorAll('input, select'), function (control, controlIndex) {
+            var columnIndex = parseInt(control.getAttribute('ct'), 10);
+            var name;
+            var cell = control.closest ? control.closest('td, th') : control.parentNode;
+            if (isNaN(columnIndex)) { columnIndex = controlIndex; }
+            name = state.headers[columnIndex] ? textOf(state.headers[columnIndex]) : ('column ' + (columnIndex + 1));
+            control.setAttribute('aria-label', 'Filter ' + name);
+            if (control.tagName === 'INPUT' && control.type !== 'button' && control.type !== 'reset') {
+                control.placeholder = 'Filter';
+            }
+            if (control.tagName === 'SELECT' && control.options && control.options.length && !control.options[0].value) {
+                control.options[0].textContent = 'All';
+            }
+            function reflectFilter() {
+                if (cell && cell.classList) {
+                    cell.classList.toggle('azadspiFilterActive', !!String(control.value || '').trim());
+                }
+            }
+            control.addEventListener('input', reflectFilter);
+            control.addEventListener('change', reflectFilter);
+            reflectFilter();
+        });
+    }
+
+    function decorateDataColumns(state) {
+        each(state.headerNames, function (name, index) {
+            if (!/(?:^|\s)(?:object|application|client|owner|principal|resource)?\s*id$/.test(name)) { return; }
+            state.headers[index].classList.add('azadspiMonoColumn');
+            each(state.rows, function (row) {
+                if (row.cells && row.cells[index]) { row.cells[index].classList.add('azadspiMonoColumn'); }
+            });
+        });
+    }
+
     function enhanceTables() {
         each(document.querySelectorAll('table.summaryTable'), function (table) {
             enhanceTable(table);
@@ -341,7 +580,12 @@
         var columns;
         var menu;
         var exportBtn;
+        var nativeNoResults;
+        var emptyState;
         if (table.getAttribute('data-azadspi-enhanced') === 'true') { return; }
+        nativeNoResults = table.nextElementSibling && table.nextElementSibling.classList.contains('no-results')
+            ? table.nextElementSibling : null;
+        removeLegacyTableExport(table);
         table.setAttribute('data-azadspi-enhanced', 'true');
         table.classList.add('azadspiEnhancedTable');
         preferredId = /agent identities/i.test(tableTitle(table)) ? 'TenantSummary_AgentIdentities'
@@ -374,6 +618,19 @@
             caption = make('caption', 'azadspiTableCaption', state.title);
             table.insertBefore(caption, table.firstChild);
         }
+        caption.classList.add('azadspiNativeCaption');
+        if (!caption.querySelector('.rspg, .pgSlc, .pgInp')) { caption.classList.add('azadspiCaptionRedundant'); }
+        var pageSizeLabel = caption.querySelector('.rspgSpan');
+        if (pageSizeLabel) { pageSizeLabel.textContent = 'Rows per page '; }
+        each(caption.querySelectorAll('.pgInp'), function (pagerButton) {
+            pagerButton.style.backgroundImage = 'none';
+            if (pagerButton.classList.contains('firstPage')) { pagerButton.value = '«'; }
+            else if (pagerButton.classList.contains('previousPage')) { pagerButton.value = '‹'; }
+            else if (pagerButton.classList.contains('nextPage')) { pagerButton.value = '›'; }
+            else if (pagerButton.classList.contains('lastPage')) { pagerButton.value = '»'; }
+        });
+        prepareNativeFilterRow(state);
+        decorateDataColumns(state);
         each(state.rows, function (row, rowIndex) {
             var node = nodeForRow(state, row);
             row._azadspiOriginalIndex = rowIndex;
@@ -406,7 +663,7 @@
         toolbar.setAttribute('aria-label', state.title + ' table controls');
         search = make('input', 'azadspiTableSearch');
         search.type = 'search';
-        search.placeholder = 'Search this table';
+        search.placeholder = 'Filter rows…';
         search.setAttribute('aria-label', 'Search ' + state.title);
         state.search = search;
         search.addEventListener('input', function () {
@@ -449,7 +706,8 @@
         columns.appendChild(menu);
         exportBtn = make('button', 'azadspiToolbarBtn', 'Export CSV');
         exportBtn.type = 'button';
-        exportBtn.addEventListener('click', function () { exportVisibleRows(state); });
+        exportBtn.title = 'Export visible rows as CSV (Shift-click for semicolon delimiter)';
+        exportBtn.addEventListener('click', function (event) { exportVisibleRows(state, event.shiftKey ? ';' : ','); });
         var copyBtn = make('button', 'azadspiToolbarBtn', 'Copy row');
         copyBtn.type = 'button';
         copyBtn.addEventListener('click', function () {
@@ -469,6 +727,17 @@
         table.parentNode.insertBefore(shell, table);
         shell.appendChild(toolbar);
         shell.appendChild(table);
+        if (nativeNoResults) { shell.appendChild(nativeNoResults); }
+        if (!state.rows.length) {
+            shell.classList.add('azadspiTableShellEmpty');
+            toolbar.hidden = true;
+            table.hidden = true;
+            if (nativeNoResults) { nativeNoResults.hidden = true; }
+            emptyState = make('div', 'azadspiTableEmpty');
+            emptyState.setAttribute('role', 'status');
+            emptyState.innerHTML = '<span class="azadspiEmptyMark" aria-hidden="true"></span><strong>No records in this section</strong><small>The tenant returned no ' + escapeHtml(state.title.toLowerCase()) + '.</small>';
+            shell.appendChild(emptyState);
+        }
         shell.addEventListener('input', function () { setTimeout(function () { updateTableStatus(state); }, 0); });
         shell.addEventListener('change', function () { setTimeout(function () { updateTableStatus(state); }, 0); });
         table.addEventListener('click', function () { setTimeout(function () { reflectSort(state); }, 0); });
@@ -739,7 +1008,7 @@
         return '"' + String(value || '').replace(/"/g, '""') + '"';
     }
 
-    function exportVisibleRows(state) {
+    function exportVisibleRows(state, delimiter) {
         var visibleColumns = [];
         var lines = [];
         var csv;
@@ -749,10 +1018,11 @@
         each(state.headers, function (th, index) {
             if (th.style.display !== 'none') { visibleColumns.push(index); }
         });
-        lines.push(visibleColumns.map(function (index) { return csvCell(textOf(state.headers[index])); }).join(','));
+        delimiter = delimiter || ',';
+        lines.push(visibleColumns.map(function (index) { return csvCell(textOf(state.headers[index])); }).join(delimiter));
         each(state.rows, function (row) {
             if (!rowIsRendered(row)) { return; }
-            lines.push(visibleColumns.map(function (index) { return csvCell(cellValue(row, index)); }).join(','));
+            lines.push(visibleColumns.map(function (index) { return csvCell(cellValue(row, index)); }).join(delimiter));
         });
         csv = '\ufeff' + lines.join('\r\n');
         blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -1371,6 +1641,7 @@
         initThemeToggle();
         initCollapsibles();
         initInvestigationWorkspace();
+        modernizeCharts();
         rethemeCharts();
     }
 

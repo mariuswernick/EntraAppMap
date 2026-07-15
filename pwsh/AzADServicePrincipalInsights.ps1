@@ -1168,28 +1168,28 @@ function summary() {
 
         [void]$htmlTenantSummary.AppendLine(@"
         <div class="noFloat">
-            <button type="button" class="decollapsible">Charts</button>
+            <button type="button" class="decollapsible">Inventory signals</button>
 
             <div class="showContent chart-container">
                 <div class="chartDiv">
-                    <span>AppOwner OrgIds count: <b>$($arrOrgCounts.Count)</b></span>
-                    <canvas id="myChart" style="height:150px; width: 250px"></canvas>
+                    <span>App owner organizations</span>
+                    <canvas id="myChart"></canvas>
                 </div>
                 <div class="chartDiv">
-                    <span>Service Principal types count: <b>$($arrSPTypeCounts.Count)</b></span>
-                    <canvas id="myChart2" style="height:150px; width: 250px"></canvas>
+                    <span>Service principal types</span>
+                    <canvas id="myChart2"></canvas>
                 </div>
                 <div class="chartDiv">
-                    <span>Managed Identity Resource types count: <b>$($arrMIResTypeCounts.Count)</b></span>
-                    <canvas id="myChart3" style="height:150px; width: 250px"></canvas>
+                    <span>Managed identity resource types</span>
+                    <canvas id="myChart3"></canvas>
                 </div>
                 <div class="chartDiv">
-                    <span>SP APP INT - SP/App Ownership</span>
-                    <canvas id="myChart4" style="height:150px; width: 250px"></canvas>
+                    <span>Ownership coverage</span>
+                    <canvas id="myChart4"></canvas>
                 </div>
                 <div class="chartDiv">
-                    <span>SP [APP INT, APP EXT, EXT] ($($SPAppINTSPAppEXTSPEXTCount)) - Notes</span>
-                <canvas id="myChart5" style="height:150px; width: 250px"></canvas>
+                    <span>Documentation coverage</span>
+                <canvas id="myChart5"></canvas>
             </div>
             </div>
         </div>
@@ -3979,12 +3979,12 @@ extensions: [{ name: 'sort' }]
 
             [void]$htmlTenantSummary.AppendLine(@"
         <div class="noFloat">
-            <button type="button" class="decollapsible">Charts</button>
+            <button type="button" class="decollapsible">Credential signals</button>
 
             <div class="showContent chart-container">
                 <div class="chartDiv">
-                    <span>Noteworthy expiry states count: <b>$($arrExpiryNoteWorthyCounts.Count)</b></span>
-                    <canvas id="chartSecretExpiryNoteWorthy" style="height:150px; width: 250px"></canvas>
+                    <span>Secret expiry status</span>
+                    <canvas id="chartSecretExpiryNoteWorthy"></canvas>
                 </div>
             </div>
         </div>
@@ -4228,12 +4228,12 @@ extensions: [{ name: 'sort' }]
 
             [void]$htmlTenantSummary.AppendLine(@"
     <div class="noFloat">
-        <button type="button" class="decollapsible">Charts</button>
+        <button type="button" class="decollapsible">Credential signals</button>
 
         <div class="showContent chart-container">
             <div class="chartDiv">
-                <span>Noteworthy expiry states count: <b>$($arrExpiryNoteWorthyCounts.Count)</b></span>
-                <canvas id="chartCertExpiryNoteWorthy" style="height:150px; width: 250px"></canvas>
+                <span>Certificate expiry status</span>
+                <canvas id="chartCertExpiryNoteWorthy"></canvas>
             </div>
         </div>
     </div>
