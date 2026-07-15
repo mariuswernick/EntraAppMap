@@ -3,10 +3,10 @@ Param
 (
     [string]$Product = 'AzADServicePrincipalInsights',
     [string]$ScriptPath = 'pwsh',
-    [string]$ProductVersion = 'v1_20250430_0',
+    [string]$ProductVersion = 'v1_20260715_1',
     [string][ValidateSet('AzAPICall', 'AzAPICallBeta')]$AzAPICallModuleName = 'AzAPICall',
     [string]$azAPICallVersion = '1.2.5',
-    [string]$GitHubRepository = 'aka.ms/AzADServicePrincipalInsights',
+    [string]$GitHubRepository = 'github.com/mariuswernick/EntraAppMap',
     [switch]$AzureDevOpsWikiAsCode, #deprecated - Based on environment variables the script will detect the code run platform
     [switch]$DebugAzAPICall,
     $ManagementGroupId,
@@ -25,7 +25,7 @@ Param
     [switch]$NoJsonExport,
     [int]$AADGroupMembersLimit = 500,
     [switch]$NoAzureResourceSideRelations,
-    [switch]$StatsOptOut,
+    [switch]$StatsOptOut, #deprecated no-op: the EntraAppMap fork sends no usage telemetry; kept so existing pipeline invocations do not break
     [int]$ApplicationSecretExpiryWarning = 14,
     [int]$ApplicationSecretExpiryMax = 730,
     [int]$ApplicationCertificateExpiryWarning = 14,
@@ -283,7 +283,7 @@ Write-Host " Initialize 'AzAPICall' succeeded" -ForegroundColor Green
 #region checkVersion
 function checkVersion {
     try {
-        $getRepoVersion = Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/JulianHayward/AzADServicePrincipalInsights/master/version.txt'
+        $getRepoVersion = Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/mariuswernick/EntraAppMap/main/version.txt'
         $versionThis = ($ProductVersion -split '_')[1]
         $script:versionOnRepositoryFull = $getRepoVersion.Content -replace "`n"
         $versionOnRepository = ($versionOnRepositoryFull -split '_')[1]
@@ -291,13 +291,13 @@ function checkVersion {
         $script:newerVersionAvailableHTML = ''
         if ([int]$versionOnRepository -gt [int]$versionThis) {
             $script:newerVersionAvailable = $true
-            $script:newerVersionAvailableHTML = '<span style="color:#FF5733; font-weight:bold">Get the latest ' + $Product + ' version (' + $versionOnRepositoryFull + ')!</span> <a href="https://aka.ms/AzADServicePrincipalInsights" target="_blank"><i class="fa fa-external-link" aria-hidden="true"></i></a>'
+            $script:newerVersionAvailableHTML = '<span style="color:#FF5733; font-weight:bold">Get the latest ' + $Product + ' version (' + $versionOnRepositoryFull + ')!</span> <a href="https://github.com/mariuswernick/EntraAppMap" target="_blank"><i class="fa fa-external-link" aria-hidden="true"></i></a>'
         }
         if ($newerVersionAvailable) {
             if (-not $azAPICallConf['htParameters'].onAzureDevOpsOrGitHubActions) {
                 Write-Host ''
                 Write-Host " * * * This $Product version ($ProductVersion) is not up to date. Get the latest $Product version ($versionOnRepositoryFull)! * * *" -ForegroundColor Green
-                Write-Host 'https://aka.ms/AzADServicePrincipalInsights'
+                Write-Host 'https://github.com/mariuswernick/EntraAppMap'
                 Write-Host ' * * * * * * * * * * * * * * * * * * * * * *' -ForegroundColor Green
                 Pause
             }
@@ -8774,151 +8774,9 @@ else {
 }
 
 #region Stats
-if (-not $StatsOptOut) {
-
-    if ($azAPICallConf['htParameters'].onAzureDevOps) {
-        if ($env:BUILD_REPOSITORY_ID) {
-            $hashTenantIdOrRepositoryId = [string]($env:BUILD_REPOSITORY_ID)
-        }
-        else {
-            $hashTenantIdOrRepositoryId = [string]($azAPICallConf['checkContext'].Tenant.Id)
-        }
-    }
-    else {
-        $hashTenantIdOrRepositoryId = [string]($azAPICallConf['checkContext'].Tenant.Id)
-    }
-
-    $hashAccId = [string]($azAPICallConf['checkContext'].Account.Id)
-
-    $hasher384 = [System.Security.Cryptography.HashAlgorithm]::Create('sha384')
-    $hasher512 = [System.Security.Cryptography.HashAlgorithm]::Create('sha512')
-
-    $hashTenantIdOrRepositoryIdSplit = $hashTenantIdOrRepositoryId.split('-')
-    $hashAccIdSplit = $hashAccId.split('-')
-
-    if (($hashTenantIdOrRepositoryIdSplit[0])[0] -match '[a-z]') {
-        $hashTenantIdOrRepositoryIdUse = "$(($hashTenantIdOrRepositoryIdSplit[0]).substring(2))$($hashAccIdSplit[2])"
-        $hashTenantIdOrRepositoryIdUse = $hasher512.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashTenantIdOrRepositoryIdUse))
-        $hashTenantIdOrRepositoryIdUse = "$(([System.BitConverter]::ToString($hashTenantIdOrRepositoryIdUse)) -replace '-')"
-    }
-    else {
-        $hashTenantIdOrRepositoryIdUse = "$(($hashTenantIdOrRepositoryIdSplit[4]).substring(6))$($hashAccIdSplit[1])"
-        $hashTenantIdOrRepositoryIdUse = $hasher384.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashTenantIdOrRepositoryIdUse))
-        $hashTenantIdOrRepositoryIdUse = "$(([System.BitConverter]::ToString($hashTenantIdOrRepositoryIdUse)) -replace '-')"
-    }
-
-    if (($hashAccIdSplit[0])[0] -match '[a-z]') {
-        $hashAccIdUse = "$($hashAccIdSplit[0].substring(2))$($hashTenantIdOrRepositoryIdSplit[2])"
-        $hashAccIdUse = $hasher512.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashAccIdUse))
-        $hashAccIdUse = "$(([System.BitConverter]::ToString($hashAccIdUse)) -replace '-')"
-        $hashUse = "$($hashAccIdUse)$($hashTenantIdOrRepositoryIdUse)"
-    }
-    else {
-        $hashAccIdUse = "$($hashAccIdSplit[4].substring(6))$($hashTenantIdOrRepositoryIdSplit[1])"
-        $hashAccIdUse = $hasher384.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashAccIdUse))
-        $hashAccIdUse = "$(([System.BitConverter]::ToString($hashAccIdUse)) -replace '-')"
-        $hashUse = "$($hashTenantIdOrRepositoryIdUse)$($hashAccIdUse)"
-    }
-
-    $identifierBase = $hasher512.ComputeHash([System.Text.Encoding]::UTF8.GetBytes($hashUse))
-    $identifier = "$(([System.BitConverter]::ToString($identifierBase)) -replace '-')"
-
-    $accountInfo = "$($azAPICallConf['checkContext'].Account.Type)$($azAPICallConf['userType'])"
-    if ($azAPICallConf['checkContext'].Account.Type -eq 'ServicePrincipal' -or $azAPICallConf['checkContext'].Account.Type -eq 'ManagedService' -or $azAPICallConf['checkContext'].Account.Type -eq 'ClientAssertion') {
-        $accountInfo = $azAPICallConf['checkContext'].Account.Type
-    }
-
-    $statsCountSubscriptions = 'less than 100'
-    if (($htSubscriptionsMgPath.Keys).Count -ge 100) {
-        $statsCountSubscriptions = 'more than 100'
-    }
-
-    $statsCountSPs = 'less than 1000'
-    if ($cu.Count -ge 1000) {
-        $statsCountSPs = 'more than 1000'
-    }
-
-    $tryCounter = 0
-    do {
-        if ($tryCounter -gt 0) {
-            Start-Sleep -Seconds ($tryCounter * 3)
-        }
-        $tryCounter++
-        $statsSuccess = $true
-        try {
-            $statusBody = @"
-{
-    "name": "Microsoft.ApplicationInsights.Event",
-    "time": "$((Get-Date).ToUniversalTime())",
-    "iKey": "ffcd6b2e-1a5e-429f-9495-e3492decfe06",
-    "data": {
-        "baseType": "EventData",
-        "baseData": {
-            "name": "$($Product)",
-            "ver": 2,
-            "properties": {
-                "accType": "$($accountInfo)",
-                "azCloud": "$($azAPICallConf['checkContext'].Environment.Name)",
-                "identifier": "$($identifier)",
-                "platform": "$($azAPICallConf['htParameters'].codeRunPlatform)",
-                "productVersion": "$($ProductVersion)",
-                "psAzAccountsVersion": "$($azAPICallConf['htParameters'].azAccountsVersion)",
-                "psVersion": "$($PSVersionTable.PSVersion)",
-                "statsCountErrors": "$($Error.Count)",
-                "statsCountSPs": "$($statsCountSPs)",
-                "statsCountSubscriptions": "$($statsCountSubscriptions)",
-                "statsTry": "$($tryCounter)"
-            }
-        }
-    }
-}
-"@
-            $stats = Invoke-WebRequest -Uri 'https://dc.services.visualstudio.com/v2/track' -Method 'POST' -Body $statusBody
-        }
-        catch {
-            $statsSuccess = $false
-        }
-    }
-    until($statsSuccess -eq $true -or $tryCounter -gt 5)
-}
-else {
-    #noStats
-    $identifier = (New-Guid).Guid
-
-    $tryCounter = 0
-    do {
-        if ($tryCounter -gt 0) {
-            Start-Sleep -Seconds ($tryCounter * 3)
-        }
-        $tryCounter++
-        $statsSuccess = $true
-        try {
-            $statusBody = @"
-{
-    "name": "Microsoft.ApplicationInsights.Event",
-    "time": "$((Get-Date).ToUniversalTime())",
-    "iKey": "ffcd6b2e-1a5e-429f-9495-e3492decfe06",
-    "data": {
-        "baseType": "EventData",
-        "baseData": {
-            "name": "$($Product)",
-            "ver": 2,
-            "properties": {
-                "identifier": "$($identifier)",
-                "statsTry": "$($tryCounter)"
-            }
-        }
-    }
-}
-"@
-            $stats = Invoke-WebRequest -Uri 'https://dc.services.visualstudio.com/v2/track' -Method 'POST' -Body $statusBody
-        }
-        catch {
-            $statsSuccess = $false
-        }
-    }
-    until($statsSuccess -eq $true -or $tryCounter -gt 5)
-}
+#Usage telemetry was removed in the EntraAppMap fork - the upstream project posted a hashed tenant/account identifier
+#to the upstream author's Application Insights instance. This fork sends nothing. The -StatsOptOut parameter is kept as
+#a deprecated no-op so existing pipeline invocations do not break.
 #endregion Stats
 
 if ($DoTranscript) {

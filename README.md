@@ -89,7 +89,7 @@ Insights and change tracking on Microsoft Entra ID Service Principals (Enterpris
 * `NoJsonExport` - Switch to disable exporting enriched data in Json formatted files
 * `AADGroupMembersLimit` - Defines the limit of AAD Group members; For AAD Groups that have more members than the defined limit Group members will not be resolved (default : 500)
 * `NoAzureResourceSideRelations` - Switch to disable the processing of Azure resource side relations 
-* `StatsOptOut` - Switch to opt out sending statistics for usage analysis
+* `StatsOptOut` - Deprecated no-op: the EntraAppMap fork sends no usage telemetry (the upstream project posted a hashed tenant/account identifier to the upstream author's Application Insights). The parameter is kept so existing pipeline invocations don't break
 * `ApplicationSecretExpiryWarning` - Define warning period for Service Principal secret expiry (default : 14 days)
 * `ApplicationSecretExpiryMax` - Define maximum expiry period for Service Principal secrets (default : 730 days)
 * `ApplicationCertificateExpiryWarning` - Define warning period for Service Principal certificate expiry (default : 14 days)
@@ -197,6 +197,9 @@ Report inventories use consistent filtering, column controls, compact mode and r
 ![EntraAppMap stale identity evidence table in the dark theme](img/entramap_evidence_dark.png)
 
 # Updates
+
+* 20260715_1 (EntraAppMap fork)
+    * Privacy/fork hygiene: removed the upstream usage telemetry entirely (no more posts to the upstream author's Application Insights; `StatsOptOut` is now a deprecated no-op), repointed the update check and its links from the upstream repository to this fork, aligned `version.txt` with the script version, and updated the default `GitHubRepository` reference
 
 * 20260714_5 (EntraAppMap fork)
     * Investigation workspace: purpose-built overview, identity and exposure map lenses; relationship filtering; low-risk external SP aggregation; contextual actions; bidirectional map/table navigation; findings presets and row detail drawers
